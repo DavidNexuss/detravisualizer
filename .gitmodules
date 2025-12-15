@@ -4,3 +4,12 @@
 [submodule "lib/glfw"]
 	path = lib/glfw
 	url = https://github.com/glfw/glfw.git
+[submodule "lib/imgui_addons/ImGuizmo"]
+	path = lib/imgui_addons/ImGuizmo
+	url = https://github.com/CedricGuillemet/ImGuizmo.git
+[submodule "lib/imgui_addons/implot"]
+	path = lib/imgui_addons/implot
+	url = https://github.com/epezent/implot.git
+[submodule "lib/imgui_addons/implot3d"]
+	path = lib/imgui_addons/implot3d
+	url = https://github.com/brenocq/implot3d.git
