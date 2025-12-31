@@ -1,10 +1,10 @@
 #pragma once
 namespace application {
-struct UI {
+struct View {
   virtual void render(float dt) = 0;
-
-  virtual ~UI() {}
+  virtual void init()           = 0;
+  virtual ~View() {}
 };
 
-UI* createUI();
+View* createView();
 } // namespace application

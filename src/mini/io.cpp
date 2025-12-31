@@ -7,6 +7,8 @@
 #include <cerrno>
 #include <cstring>
 #include <stdexcept>
+#include <unordered_map>
+#include "io.hpp"
 
 namespace io {
 
@@ -62,6 +64,30 @@ std::vector<char> fileread_mmap(const std::string& path) {
   munmap(mapped, size);
   close(fd);
   return buffer;
+}
+
+bool fileHasChanged(const std::string& path) {
+  static std::unordered_map<std::string, time_t> lastModified;
+
+  struct stat info;
+  if (stat(path.c_str(), &info) != 0) {
+    return false;
+  }
+
+  time_t mtime = info.st_mtime;
+
+  auto it = lastModified.find(path);
+  if (it == lastModified.end()) {
+    lastModified[path] = mtime;
+    return false;
+  }
+
+  if (it->second != mtime) {
+    it->second = mtime;
+    return true;
+  }
+
+  return false;
 }
 
 std::vector<char> fileread(const std::string& path) {

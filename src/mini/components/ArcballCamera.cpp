@@ -1,5 +1,15 @@
 #include "ArcballCamera.hpp"
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/ext.hpp>
+
+ArcballCamera::ArcballCamera() : m_radius(5.0f), m_target(0.0f, 0.0f, 0.0f), m_rotation(1.0f, 0.0f, 0.0f, 0.0f), //
+                                 m_fovY(glm::radians(60.0f)),
+                                 m_aspect(1.0f),
+                                 m_zNear(0.1f),
+                                 m_zFar(1000.0f),
+                                 m_dragging(false),
+                                 m_lastSpherePos(0.0f) {
+}
 
 ArcballCamera::ArcballCamera(
   float            radius,
@@ -24,6 +34,40 @@ glm::vec3 ArcballCamera::projectToSphere(float x, float y) const {
   }
 
   return glm::vec3(x, y, z);
+}
+
+Camera ArcballCamera::getCamera() const {
+  Camera cam{};
+  cam.view        = viewMatrix();
+  cam.proj        = projectionMatrix();
+  cam.combined    = cam.proj * cam.view;
+  cam.invCombined = glm::inverse(cam.combined);
+  cam.invView     = glm::inverse(cam.view);
+  cam.updateMatrices();
+  return cam;
+}
+
+void ArcballCamera::lookAlong(const glm::vec3& direction, const glm::vec3& up) {
+  glm::vec3 dir = glm::normalize(direction);
+  if (glm::dot(dir, dir) < 1e-8f)
+    return;
+
+  glm::vec3 defaultDir = glm::vec3(0, 0, -1);
+
+  glm::vec3 axis     = glm::cross(defaultDir, dir);
+  float     cosAngle = glm::dot(defaultDir, dir);
+
+  if (glm::dot(axis, axis) < 1e-8f) {
+    if (cosAngle > 0.0f) {
+      m_rotation = glm::quat(1, 0, 0, 0);
+    } else {
+      m_rotation = glm::angleAxis(glm::pi<float>(), up);
+    }
+  } else {
+    axis        = glm::normalize(axis);
+    float angle = acos(glm::clamp(cosAngle, -1.0f, 1.0f));
+    m_rotation  = glm::angleAxis(angle, axis);
+  }
 }
 
 void ArcballCamera::beginDrag(float xNdc, float yNdc) {
