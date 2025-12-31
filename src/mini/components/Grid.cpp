@@ -1,63 +1,94 @@
 #include "Grid.hpp"
-#include <glm/glm.hpp>
 #include <glad/glad.h>
 #include <mini/graphics.hpp>
+#include <mini/io.hpp>
 
-const static char* fsPath = "assets/shaders/grid.frag";
-const static char* vsPath = "assets/shaders/grid.vert";
+const char* fsPath = "assets/shaders/grid.frag";
+const char* vsPath = "assets/shaders/grid.vert";
 
-struct GridUniformLocations {
-  GLuint u_invViewProj;
-  GLuint u_cameraPos;
-  GLuint u_gridSpacing;
-  GLuint u_maxDistance;
-  GLuint u_colorMul;
-};
+GridRenderer::GridRenderer() : m_program(0), m_vao(0) {
+  init();
+}
 
-Grid::Grid() {
-  m_program = graphics::loadProgram(fsPath, vsPath);
+GridRenderer::~GridRenderer() {
+  destroy();
+}
+
+void GridRenderer::initVao() {
+  const float quadVertices[] = {
+    // x     y     z
+    -1.0f, 0.0f, -1.0f,
+    1.0f, 0.0f, -1.0f,
+    1.0f, 0.0f, 1.0f,
+
+    -1.0f, 0.0f, -1.0f,
+    1.0f, 0.0f, 1.0f,
+    -1.0f, 0.0f, 1.0f};
+
   glGenVertexArrays(1, &m_vao);
+  glGenBuffers(1, &m_vbo);
+
+  glBindVertexArray(m_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(
+    0,
+    3,
+    GL_FLOAT,
+    GL_FALSE,
+    3 * sizeof(float),
+    (void*)0);
+
+  glBindVertexArray(0);
 }
 
-Grid::~Grid() {
-  if (m_program) glDeleteProgram(m_program);
-  if (m_vao) glDeleteVertexArrays(1, &m_vao);
+void GridRenderer::initProgram() {
+  m_program = graphics::loadProgram(fsPath, vsPath);
+
+  uInvViewProj     = glGetUniformLocation(m_program, "invViewProj");
+  uCameraPos       = glGetUniformLocation(m_program, "cameraPos");
+  uGridSpacing     = glGetUniformLocation(m_program, "gridSpacing");
+  uLineRadius      = glGetUniformLocation(m_program, "lineRadius");
+  uGridColor       = glGetUniformLocation(m_program, "gridColor");
+  uBackgroundColor = glGetUniformLocation(m_program, "backgroundColor");
+  uTransform       = glGetUniformLocation(m_program, "u_Transform");
 }
 
-void Grid::setResolution(float res) {
-  m_resolution = res;
+void GridRenderer::init() {
+  initProgram();
+  initVao();
 }
 
-void Grid::setDistance(float distance) {
-  m_distance = distance;
+void GridRenderer::destroy() {
+  glDeleteBuffers(1, &m_vbo);
+  glDeleteVertexArrays(1, &m_vao);
+  glDeleteProgram(m_program);
 }
 
-void Grid::setColorMultiplier(const glm::vec4& colorMultiplier) {
-  m_color = colorMultiplier;
-}
+void GridRenderer::render(const Grid& grid, const Camera& camera) {
 
-void Grid::setTransform(const glm::mat4& transform) {
-  m_transform = transform;
-}
-
-void Grid::gridController() {
-}
-
-void Grid::render(const Camera& camera) {
+  if (io::fileHasChanged(fsPath) || io::fileHasChanged(vsPath)) {
+    try {
+      initProgram();
+    } catch (const std::exception& e) {
+      fprintf(stderr, "Failed to reload grid shader: %s\n", e.what());
+      // continue using previous shader
+    }
+  }
   glUseProgram(m_program);
   glBindVertexArray(m_vao);
 
-  glm::mat4 invVP = camera.invCombined;
+  glm::vec3 campos = camera.getCameraPosition();
 
-  glm::vec3 cameraPosition = camera.getCameraPosition();
+  glUniformMatrix4fv(uInvViewProj, 1, GL_FALSE, &camera.invCombined[0][0]);
+  glUniform3fv(uCameraPos, 1, &campos[0]);
+  glUniform1f(uGridSpacing, grid.resolution);
+  glUniform1f(uLineRadius, grid.distance);
+  glUniform3fv(uGridColor, 1, &glm::vec3(grid.color)[0]);
+  glUniform3fv(uBackgroundColor, 1, &glm::vec3(0.0f)[0]);
+  glUniformMatrix4fv(uTransform, 1, GL_FALSE, &grid.transform[0][0]);
 
-  glUniformMatrix4fv(glGetUniformLocation(m_program, "invViewProj"), 1, GL_FALSE, &invVP[0][0]);
-  glUniform3fv(glGetUniformLocation(m_program, "cameraPos"), 1, &cameraPosition.x);
-  glUniform1f(glGetUniformLocation(m_program, "gridSpacing"), m_resolution);
-  glUniform1f(glGetUniformLocation(m_program, "maxDistance"), m_distance);
-  glUniform4fv(glGetUniformLocation(m_program, "colorMul"), 1, &m_color[0]);
-
-  glDisable(GL_DEPTH_TEST);
   glDrawArrays(GL_TRIANGLES, 0, 6);
-  glEnable(GL_DEPTH_TEST);
 }

@@ -1,22 +1,23 @@
 #include "mini/core.hpp"
 #include "mini/graphics.hpp"
-#include "application/ui.hpp"
+#include "application/view.hpp"
 
 using namespace minimotor;
 
 struct Application : public IApplication {
 
-  std::unique_ptr<application::UI> ui;
+  std::unique_ptr<application::View> ui;
 
   void init() override {
-    ui = std::unique_ptr<application::UI>(application::createUI());
+    ui = std::unique_ptr<application::View>(application::createView());
+    ui->init();
   }
 
   void step(float dt) override {
-    ui->render(dt);
+    glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glClearColor(0.2, 0.2f, 0.2f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    ui->render(dt);
   }
 };
 

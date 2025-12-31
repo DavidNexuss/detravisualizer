@@ -9,4 +9,6 @@ struct Camera {
   glm::mat4 invView;
 
   glm::vec3 getCameraPosition() const;
+
+  void updateMatrices();
 };

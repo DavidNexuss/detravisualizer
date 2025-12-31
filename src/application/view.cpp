@@ -1,5 +1,5 @@
 #include <external/imgui/imgui.h>
-#include "ui.hpp"
+#include "view.hpp"
 #include "mini/components/Grid.hpp"
 #include "mini/components/ArcballCamera.hpp"
 #include <memory>
@@ -8,12 +8,13 @@ namespace application {
 
 const float toolbarHeight = 50.0f;
 
-class UIImpl : public UI {
+class ViewImpl : public View {
 
   // ========================[APPLICATION UI=============================================
 
-  std::unique_ptr<Grid>          grid;
-  std::unique_ptr<ArcballCamera> arcballCamera;
+  std::unique_ptr<GridRenderer> gridRenderer;
+  Grid                          mainGrid;
+  ArcballCamera                 arcballCamera;
 
   void MainMenuUI() {
     if (ImGui::BeginMainMenuBar()) {
@@ -62,18 +63,29 @@ class UIImpl : public UI {
 
   //===============[APPLICATION VIEW]============================
 
-  virtual void init() {
-    grid = std::make_unique<Grid>();
+  virtual void init() override {
+    gridRenderer = std::make_unique<GridRenderer>();
+
+    mainGrid.resolution = 1.0f;
+    mainGrid.distance   = 1000.0f;
+    mainGrid.color      = glm::vec4(0.6f, 0.6f, 0.6f, 1.0f);
+    mainGrid.transform  = glm::mat4(1.0f);
+
+    arcballCamera.lookAlong(glm::vec3(1, 0.5, 0));
   }
 
-  virtual void render(float dt) {
+  virtual void render(float dt) override {
     MainMenuUI();
+    // Render grid
+    if (gridRenderer) {
+      gridRenderer->render(mainGrid, arcballCamera.getCamera());
+    }
   }
 };
 
 
-UI* createUI() {
-  return new UIImpl;
+View* createView() {
+  return new ViewImpl;
 }
 
 } // namespace application

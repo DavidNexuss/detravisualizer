@@ -1,6 +1,5 @@
 #version 330 core
-
-in vec2 vUV;
+in vec2 vUV; 
 out vec4 FragColor;
 
 uniform mat4 invViewProj;
@@ -12,30 +11,16 @@ uniform float lineRadius;
 uniform vec3 gridColor;
 uniform vec3 backgroundColor;
 
-vec3 reconstructRay(vec2 uv) {
-    vec4 ndc = vec4(uv * 2.0 - 1.0, 1.0, 1.0);
+vec3 reconstructRay(vec2 uv)
+{
+    vec4 ndc = vec4(uv * 2.0 - 1.0, 1.0, 1.0); 
     vec4 world = invViewProj * ndc;
     world /= world.w;
     return normalize(world.xyz - cameraPos);
 }
 
-float rayLineDistance( vec3 ro, vec3 rd,vec3 p0, vec3 dir) {
-    vec3 w0 = ro - p0;
-    float a = dot(rd, rd);
-    float b = dot(rd, dir);
-    float c = dot(dir, dir);
-    float d = dot(rd, w0);
-    float e = dot(dir, w0);
-
-    float denom = a * c - b * b;
-    float sc = (b * e - c * d) / denom;
-
-    vec3 closestRay = ro + sc * rd;
-    vec3 closestLine = p0 + dir * dot(closestRay - p0, dir);
-    return length(closestRay - closestLine);
-}
-
-void main() {
+void main()
+{
     vec3 ro = cameraPos;
     vec3 rd = reconstructRay(vUV);
 
@@ -46,25 +31,18 @@ void main() {
 
     vec3 hit = ro + rd * t;
 
-    float gx = round(hit.x / gridSpacing) * gridSpacing;
-    float gz = round(hit.z / gridSpacing) * gridSpacing;
+    float fx = mod(hit.x, gridSpacing);
+    float fz = mod(hit.z, gridSpacing);
 
-    float distX = rayLineDistance(
-        ro, rd,
-        vec3(gx, 0.0, 0.0),
-        vec3(0.0, 0.0, 1.0)
-    );
+    fx = min(fx, gridSpacing - fx);
+    fz = min(fz, gridSpacing - fz);
 
-    float distZ = rayLineDistance(
-        ro, rd,
-        vec3(0.0, 0.0, gz),
-        vec3(1.0, 0.0, 0.0)
-    );
+    float dist = min(fx, fz);
 
-    float d = min(distX, distZ);
+    FragColor = vec4(vec3(dist), 1.0f);
 
-    float aa = fwidth(d);
-    float alpha = smoothstep(lineRadius + aa, lineRadius - aa, d);
+    float aa = fwidth(dist);
+    float alpha = smoothstep(lineRadius + aa, lineRadius - aa, dist);
 
     vec3 color = mix(backgroundColor, gridColor, alpha);
     FragColor = vec4(color, 1.0);
