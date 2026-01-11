@@ -56,11 +56,11 @@ class ViewImpl : public View {
 
   // Camera related stuff
   bool  panning = false;
-  float lastX;
-  float lastY;
+  float lastX   = 0.0f;
+  float lastY   = 0.0f;
 
-  float dx;
-  float dy;
+  float dx = 0.0f;
+  float dy = 0.0f;
 
   glm::vec3 camTarget   = glm::vec3(0.0f);
   float     camDistance = 5.0f;
