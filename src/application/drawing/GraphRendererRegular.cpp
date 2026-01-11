@@ -32,7 +32,7 @@ struct GraphRendererRegular : public GraphRenderer {
     initialized = false;
   }
 
-  GraphRendererEntity entity;
+  GraphRendererEntity entity = {};
   bool                initialized;
   GLuint              nodeVAO;
   GLuint              nodeVBO;
@@ -49,11 +49,11 @@ struct GraphRendererRegular : public GraphRenderer {
   GLuint uEdgeViewProj;
   GLuint uEdgeColor;
 
-  uint64_t vertexCountEdge;
-  uint64_t vertexCountNode;
+  uint64_t vertexCountEdge = 0;
+  uint64_t vertexCountNode = 0;
 
-  bool confRenderEdges;
-  bool confRenderNodes;
+  bool confRenderEdges = true;
+  bool confRenderNodes = true;
 
   void initNodeVao() {
     glGenVertexArrays(1, &nodeVAO);
