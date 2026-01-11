@@ -7,6 +7,10 @@ static const char* nodeFS = "assets/shaders/graph/regular/nodes.frag";
 static const char* edgeVS = "assets/shaders/graph/regular/edges.vert";
 static const char* edgeFS = "assets/shaders/graph/regular/edges.frag";
 
+/**
+ * This algorithm creates the edges mesh
+ * It assumes that the edge will not land on the XY plane in order to work, needs to be fixed
+ */
 void pushLine(std::vector<glm::vec3>& mesh, glm::vec3 start, glm::vec3 end, float thickness) {
   glm::vec3 up = glm::cross(glm::normalize(end - start), glm::vec3(0, 0, 1)) * thickness * 0.5f;
 
