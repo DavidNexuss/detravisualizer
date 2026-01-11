@@ -13,7 +13,7 @@ void run(std::shared_ptr<IApplication> app) {
   display::Window* window = display::windowCreate();
   ui::setupStyle();
 
-  app->init();
+  app->init(window);
   while (!window->shouldClose()) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();

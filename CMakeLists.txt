@@ -22,5 +22,6 @@ file(GLOB_RECURSE SRC
   src/*.cpp src/*.c
 )
 
+include_directories(lib/octree)
 add_executable(detravisualizer ${SRC})
 target_link_libraries(detravisualizer detragraphs glfw)

@@ -8,6 +8,9 @@ void poll();
 struct Window {
   virtual int   getX()         = 0;
   virtual int   getY()         = 0;
+  virtual float getScroll()    = 0;
+  virtual bool  clickOn()      = 0;
+  virtual bool  clickOnRight() = 0;
   virtual int   getWidth()     = 0;
   virtual int   getHeight()    = 0;
   virtual void  swapBuffers()  = 0;
