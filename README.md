@@ -29,3 +29,5 @@ You can pan and rotate the camera.
 Currently there is no way to load graphs but you can still generate them from a variety of generators.
 
 All networks should be under the networks directory.
+
+Once a network is generated you can export the result of every layout algorithm by using the export menu, just press the button and all layouts will be exported under a new graph directory with their absolute positions.
