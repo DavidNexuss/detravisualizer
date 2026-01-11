@@ -66,4 +66,7 @@ configure_cmake build/debug Debug
 make_symlink build/release/assets ../../assets
 make_symlink build/debug/assets ../../assets
 
+make_symlink build/release/networks ../../networks
+make_symlink build/debug/networks ../../networks
+
 make_symlink compile_commands.json build/release/compile_commands.json

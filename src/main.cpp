@@ -1,6 +1,7 @@
 #include "mini/core.hpp"
 #include "mini/graphics.hpp"
 #include "application/view.hpp"
+#include "mini/display.hpp"
 
 using namespace minimotor;
 
@@ -8,9 +9,11 @@ struct Application : public IApplication {
 
   std::unique_ptr<application::View> ui;
 
-  void init() override {
+  void init(display::Window* window) override {
     ui = std::unique_ptr<application::View>(application::createView());
-    ui->init();
+    ui->init(window);
+
+    glEnable(GL_MULTISAMPLE);
   }
 
   void step(float dt) override {

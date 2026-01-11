@@ -1,4 +1,4 @@
-#include "Grid.hpp"
+#include "GridRenderer.hpp"
 #include <glad/glad.h>
 #include <mini/graphics.hpp>
 #include <mini/io.hpp>
