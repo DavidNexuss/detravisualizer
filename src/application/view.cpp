@@ -296,7 +296,6 @@ class ViewImpl : public View {
             std::cout << "> " << file << std::endl;
           }
 
-
           if (files.empty()) {
             ImGui::MenuItem("(no graphs found)", nullptr, false, false);
           } else {
@@ -327,20 +326,6 @@ class ViewImpl : public View {
         }
         if (ImGui::MenuItem("Save")) {
         }
-        ImGui::EndMenu();
-      }
-
-      if (ImGui::BeginMenu("View")) {
-        static bool show_grid  = true;
-        static bool show_stats = false;
-
-        ImGui::MenuItem("Grid", nullptr, &show_grid);
-        ImGui::MenuItem("Stats", nullptr, &show_stats);
-        ImGui::EndMenu();
-      }
-
-      if (ImGui::BeginMenu("Help")) {
-        ImGui::MenuItem("About");
         ImGui::EndMenu();
       }
 
