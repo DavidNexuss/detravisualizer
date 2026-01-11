@@ -27,3 +27,5 @@ Usual workflow you can generate the graphs using the Generate tool once is gener
 You can pan and rotate the camera.
 
 Currently there is no way to load graphs but you can still generate them from a variety of generators.
+
+All networks should be under the networks directory.
