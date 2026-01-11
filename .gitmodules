@@ -13,3 +13,6 @@
 [submodule "lib/imgui_addons/implot3d"]
 	path = lib/imgui_addons/implot3d
 	url = https://github.com/brenocq/implot3d.git
+[submodule "lib/octree"]
+	path = lib/octree
+	url = https://github.com/jbehley/octree
