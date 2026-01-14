@@ -7,10 +7,38 @@
 #include <memory>
 #include <application/domain.hpp>
 #include <application/util.hpp>
+#include <string.h>
+#include <glm/glm.hpp>
+
+static inline glm::vec2 catmullRom(
+  const glm::vec2& p0,
+  const glm::vec2& p1,
+  const glm::vec2& p2,
+  const glm::vec2& p3,
+  float            t) {
+  float t2 = t * t;
+  float t3 = t2 * t;
+
+  return 0.5f * ((2.0f * p1) + (-p0 + p2) * t + (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * t2 + (-p0 + 3.0f * p1 - 3.0f * p2 + p3) * t3);
+}
+
+
+float eval(glm::vec2 points[3], float t) {
+  t = glm::clamp(t, 0.0f, 1.0f);
+
+  glm::vec2 p0 = points[0];
+  glm::vec2 p1 = points[0];
+  glm::vec2 p2 = points[1];
+  glm::vec2 p3 = points[2];
+
+  glm::vec2 v = catmullRom(p0, p1, p2, p3, t);
+  return v.y; // or return v for full 2D
+}
 
 
 namespace graphs {
 namespace position {
+
 struct AlgorithmACI {
   float majorDistance  = 100.0f;
   float minorDistance  = 2.0f;
@@ -19,9 +47,16 @@ struct AlgorithmACI {
   float jitter         = 1.0f;
   float minimal        = 0.0f;
   float offset         = 0.0f;
+  bool  interpolation  = false;
+  float av             = 1.0f;
+  float bv             = 1.0f;
+  float cv             = 1.0f;
+  float nodeThreshold  = 1.0f;
+
+  glm::vec2 interp[3];
 
   inline bool operator==(const AlgorithmACI& other) const {
-    return other.minorDistance == minorDistance && other.majorDistance == majorDistance && other.treecapitation == treecapitation && other.logtolerance == logtolerance && other.jitter == jitter && other.minimal == minimal && offset == other.offset;
+    return memcmp(this, &other, sizeof(AlgorithmACI)) == 0;
   }
 };
 
@@ -75,11 +110,17 @@ void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& po
 
   std::unordered_set<uint32_t> placed;
 
+  int i = 0;
   //Calculate postions A and B
   for (uint32_t node : degreeSequence) {
-
+    i++;
     if (ignore.count(node)) {
       placed.insert(node);
+      continue;
+    }
+
+    if ((i / (float)degreeSequence.size()) > ci.nodeThreshold) {
+      positions[node] = glm::vec3(0.0f);
       continue;
     }
 
@@ -123,15 +164,16 @@ void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& po
 
     float t = ci.logtolerance * tlog + (1 - ci.logtolerance) * tnor;
 
-    // Place the node, linear interpolation of A and B
-    positions[node] = (t + ci.minimal) * B + (1 - t) * A + C * ci.jitter;
-    placed.insert(node);
-  }
+    if (ci.interpolation)
+      t = eval(ci.interp, t);
 
-  // Donut
-  for (uint32_t node : degreeSequence) {
-    if (ignore.count(node)) continue;
-    positions[node] = (glm::length(positions[node]) + ci.offset) * glm::normalize(positions[node]);
+    // Place the node, linear interpolation of A and B
+    positions[node] =
+      ((t + ci.minimal) * B) * ci.bv +
+      (1 - t) * A * ci.av +
+      C * ci.cv;
+
+    placed.insert(node);
   }
 }
 
