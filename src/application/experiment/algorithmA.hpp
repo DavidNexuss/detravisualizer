@@ -62,6 +62,30 @@ struct AlgorithmACI {
 
 static random_sources::XORand source;
 
+glm::vec3 randomMaxSatValueColor() {
+  float h = source.randf();
+  float s = 1.0f;
+  float v = 1.0f;
+
+  float c = v * s;
+  float x = c * (1.0f - std::fabs(std::fmod(h * 6.0f, 2.0f) - 1.0f));
+  float m = v - c;
+
+  int sector = static_cast<int>(h * 6.0f);
+
+  glm::vec3 rgb;
+  switch (sector) {
+    case 0: rgb = {c, x, 0}; break;
+    case 1: rgb = {x, c, 0}; break;
+    case 2: rgb = {0, c, x}; break;
+    case 3: rgb = {0, x, c}; break;
+    case 4: rgb = {x, 0, c}; break;
+    default: rgb = {c, 0, x}; break;
+  }
+
+  return rgb + glm::vec3(m);
+}
+
 inline glm::vec3 randomDirection() {
 
   glm::vec3 dir;
@@ -100,10 +124,9 @@ std::vector<float> softmin(const std::vector<T>& x, double tau) {
 
 
 template <typename Graph>
-void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& positions, std::unordered_set<uint32_t> ignore, std::vector<uint32_t>& degreeSequence, std::vector<uint32_t>& degrees) {
+void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& colors, std::vector<glm::vec3>& positions, std::unordered_set<uint32_t> ignore, std::vector<uint32_t>& degreeSequence, std::vector<uint32_t>& degrees) {
 
   source = random_sources::XORand();
-
 
   float maxDegree    = graph.getEdgeCount(degreeSequence[0]);
   float maxDegreeLog = std::log(maxDegree + 1);
@@ -124,20 +147,23 @@ void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& po
       continue;
     }
 
-    glm::vec3 A = glm::vec3(0.0f);
-    glm::vec3 B = glm::vec3(0.0f);
-    glm::vec3 C = glm::vec3(0.0f);
+    glm::vec3 A  = glm::vec3(0.0f);
+    glm::vec3 Ac = glm::vec3(0.0f);
+    glm::vec3 B  = glm::vec3(0.0f);
+    glm::vec3 C  = glm::vec3(0.0f);
 
     //Computation of A
     //How relevant is this node as peer, based on how meaninful are its connection to its peers
     {
       std::vector<glm::vec3> relevantPositions;
+      std::vector<glm::vec3> relevantColors;
       std::vector<uint32_t>  relevantDegrees;
 
       // Only look for nodes that already have a position in the layout, which are guranteed to have higher degree
       for (uint32_t c : graph.getEdges(node)) {
         if (placed.count(c)) {
           relevantPositions.push_back(positions[c]);
+          relevantColors.push_back(colors[c]);
           relevantDegrees.push_back(graph.getEdgeCount(c));
         }
       }
@@ -145,6 +171,7 @@ void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& po
       auto weights = softmin(relevantDegrees, ci.treecapitation);
       for (uint32_t i = 0; i < weights.size(); i++) {
         A += weights[i] * relevantPositions[i];
+        Ac += weights[i] * relevantColors[i];
       }
     }
 
@@ -173,6 +200,8 @@ void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& po
       (1 - t) * A * ci.av +
       C * ci.cv;
 
+    colors[node] = t * randomMaxSatValueColor() + (1 - t) * Ac;
+
     placed.insert(node);
   }
 }
@@ -194,8 +223,9 @@ void treecapitator(Graph& graph, std::shared_ptr<GraphLayout> layout, AlgorithmA
   });
 
   std::vector<glm::vec3> positions(graph.getVertexCount());
+  layout->colors = positions;
 
-  treecapitatorstep(graph, ci, positions, {}, degreeSequence, degrees);
+  treecapitatorstep(graph, ci, layout->colors, positions, {}, degreeSequence, degrees);
 
   layout->positions = positions;
 }
@@ -299,7 +329,7 @@ void treecapitatorForceDirected(std::shared_ptr<Graph> graph, AlgorithmACI ci, s
 
   for (uint32_t u = 0; u < ctx.hubs.size(); u++) ignore.insert(ctx.hubs[u]);
 
-  treecapitatorstep(*graph, ci, positions, ignore, ctx.degreeSequence, ctx.degrees);
+  treecapitatorstep(*graph, ci, layout->colors, positions, ignore, ctx.degreeSequence, ctx.degrees);
 }
 } // namespace position
 } // namespace graphs
