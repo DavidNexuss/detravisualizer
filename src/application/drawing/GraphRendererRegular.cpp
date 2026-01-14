@@ -1,5 +1,6 @@
 #include "GraphRenderer.hpp"
 #include <mini/graphics.hpp>
+#include <metrics.hpp>
 #include <mini/io.hpp>
 
 static const char* nodeVS = "assets/shaders/graph/regular/nodes.vert";
@@ -40,6 +41,7 @@ struct GraphRendererRegular : public GraphRenderer {
   bool                initialized;
   GLuint              nodeVAO;
   GLuint              nodeVBO;
+  GLuint              nodeVBODegree;
   GLuint              edgeVAO;
   GLuint              edgeVBO;
   GLuint              nodeProgram;
@@ -48,7 +50,6 @@ struct GraphRendererRegular : public GraphRenderer {
   GLuint uNodeViewProj;
   GLuint uNodeCenter;
   GLuint uNodeRadius;
-  GLuint uNodeColor;
   GLuint uCameraPos;
   GLuint uEdgeViewProj;
   GLuint uEdgeColor;
@@ -62,12 +63,18 @@ struct GraphRendererRegular : public GraphRenderer {
   void initNodeVao() {
     glGenVertexArrays(1, &nodeVAO);
     glGenBuffers(1, &nodeVBO);
+    glGenBuffers(1, &nodeVBODegree);
 
     glBindVertexArray(nodeVAO);
     glBindBuffer(GL_ARRAY_BUFFER, nodeVBO);
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, nodeVBODegree);
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
 
     glBindVertexArray(0);
   }
@@ -93,7 +100,6 @@ struct GraphRendererRegular : public GraphRenderer {
     uNodeViewProj = glGetUniformLocation(nodeProgram, "uViewProj");
     uNodeCenter   = glGetUniformLocation(nodeProgram, "uCenter");
     uNodeRadius   = glGetUniformLocation(nodeProgram, "uRadius");
-    uNodeColor    = glGetUniformLocation(nodeProgram, "uColor");
     uCameraPos    = glGetUniformLocation(nodeProgram, "uCameraPos");
 
     // Edge program uniforms
@@ -112,6 +118,21 @@ struct GraphRendererRegular : public GraphRenderer {
   void buildNodes() {
     glBindBuffer(GL_ARRAY_BUFFER, nodeVBO);
     glBufferData(GL_ARRAY_BUFFER, entity.layout->positions.size() * sizeof(glm::vec3), entity.layout->positions.data(), GL_DYNAMIC_DRAW);
+
+    auto nodeDegrees = graphs::metrics::degree_sequence(*entity.graph);
+
+    std::vector<float> nodeDegreesFloat(nodeDegrees.size());
+
+    uint32_t maxNodeDegree = 0;
+
+    for (size_t i = 0; i < nodeDegrees.size(); i++)
+      maxNodeDegree = std::max(maxNodeDegree, nodeDegrees[i]);
+
+    for (size_t i = 0; i < nodeDegrees.size(); i++)
+      nodeDegreesFloat[i] = nodeDegrees[i] / (float)maxNodeDegree;
+
+    glBindBuffer(GL_ARRAY_BUFFER, nodeVBODegree);
+    glBufferData(GL_ARRAY_BUFFER, entity.graph->getVertexCount(), nodeDegreesFloat.data(), GL_DYNAMIC_DRAW);
 
     vertexCountNode = entity.layout->positions.size();
   }

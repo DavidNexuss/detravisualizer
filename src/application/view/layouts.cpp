@@ -7,6 +7,8 @@
 #include <position/spectralCPU.hpp>
 #include <position/spring.hpp>
 #include <position/furchtermanReingold.hpp>
+#include <application/experiment/algorithmA.hpp>
+#include <application/experiment/sunflower.hpp>
 #include <imgui/imgui.h>
 #include "../view.hpp"
 
@@ -40,6 +42,51 @@ struct PositionTableCache {
 
 PositionTableCache ptableCache;
 
+struct sunflowerGUI : LayoutController {
+
+  int   depth    = 7;
+  int   breath   = 3;
+  int   maxN     = 1000;
+  float distance = 20.0f;
+  float gamma    = 1.2f;
+
+  sunflowerGUI() {
+    depth    = 7;
+    breath   = 3;
+    maxN     = 1000;
+    distance = 20.0f;
+    gamma    = 1.2f;
+  }
+  void configureUI() override {
+    ImGui::SeparatorText("sunflowerGUI");
+
+    ImGui::InputInt("Depth", &depth);
+    ImGui::InputInt("Breath", &breath);
+    ImGui::InputInt("Max N", &maxN);
+    ImGui::InputFloat("Distance", &distance);
+    ImGui::InputFloat("Gamma", &gamma);
+
+    depth  = std::max(0, depth);
+    breath = std::max(0, breath);
+    maxN   = std::max(0, maxN);
+  }
+
+  std::shared_ptr<GraphLayout> layout(std::shared_ptr<Graph> graph) override {
+    ptableCache.reset();
+
+    auto layout = ptableCache.getPositionTable(graph, this);
+
+    layout->positions = sunflower(depth, breath, maxN, distance, gamma);
+    layout->positions.resize(graph->getVertexCount());
+
+    return layout;
+  }
+
+  std::string getName() override {
+    return "sunflowerGUI";
+  }
+};
+
 struct Shell3DCreateInfoGUI : public graphs::position::Shell3DCreateInfo, LayoutController {
 
   void configureUI() override {
@@ -60,6 +107,29 @@ struct Shell3DCreateInfoGUI : public graphs::position::Shell3DCreateInfo, Layout
 
   std::string getName() override {
     return "Shell3D";
+  }
+};
+struct ACILayoutGUI : public graphs::position::AlgorithmACI, public LayoutController {
+
+  void configureUI() override {
+    ImGui::SeparatorText("ACI Layout");
+
+    ImGui::InputFloat("Major Distance", &majorDistance);
+
+    majorDistance = std::max(majorDistance, 0.0f);
+  }
+
+  std::shared_ptr<GraphLayout> layout(std::shared_ptr<Graph> graph) override {
+    ptableCache.reset();
+
+    auto graphlayout = ptableCache.getPositionTable(graph, this);
+    graphs::position::aci(*graph, graphlayout, static_cast<const graphs::position::AlgorithmACI&>(*this));
+
+    return graphlayout;
+  }
+
+  std::string getName() override {
+    return "ACI";
   }
 };
 struct LinLogCreateInfoGUI : public graphs::position::LinLogCreateInfo, LayoutController {
@@ -365,6 +435,8 @@ std::vector<LayoutController*> getLayouts() {
     layouts.push_back(new SpectralLayoutCreateInfoGUI);
     layouts.push_back(new StressMajorizationCreateInfoGUI);
     layouts.push_back(new RadialPlacementCreateInfoGUI);
+    layouts.push_back(new ACILayoutGUI);
+    layouts.push_back(new sunflowerGUI);
   }
 
   return layouts;

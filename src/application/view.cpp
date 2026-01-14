@@ -10,7 +10,10 @@
 #include <string>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include <metrics.hpp>
 #include <mini/components/Camera.hpp>
+#include "graphStats.hpp"
+#include "camControls.hpp"
 
 namespace fs = std::filesystem;
 
@@ -19,18 +22,6 @@ namespace application {
 const float toolbarHeight = 50.0f;
 
 class ViewImpl : public View {
-
-  // ========================[APPLICATION UI=============================================
-  display::Window* appWindow;
-
-  std::unique_ptr<GridRenderer>  gridRenderer;
-  std::shared_ptr<GraphRenderer> graphRenderer;
-
-  GraphRendererConfiguration rendererConfiguration;
-
-  Grid   mainGrid;
-  Camera camera;
-
   float renderScale                 = 1.0f;
   bool  showGenerateMenu            = true;
   bool  showLayoutMenu              = true;
@@ -38,34 +29,26 @@ class ViewImpl : public View {
   bool  showExportMenu              = true;
   bool  showRenderConfigurationMenu = false;
 
-  std::shared_ptr<Graph>       currentGraph;
-  std::shared_ptr<GraphLayout> currentGraphLayout;
+  // ========================[APPLICATION UI=============================================
 
-  GeneratorController* currentGenerator;
-  LayoutController*    currentLayout;
+  GraphRendererConfiguration rendererConfiguration;
 
-  struct GraphStatistics {
-    size_t    nodeCount       = 0;
-    size_t    edgeCount       = 0;
-    size_t    nodeCountLayout = 0;
-    glm::vec3 centroid        = glm::vec3(0.0f);
-    glm::mat4 transform       = glm::mat4(1.0f);
-  };
+  display::Window* appWindow;
 
-  GraphStatistics stats;
+  CamControls camera;
 
-  // Camera related stuff
-  bool  panning = false;
-  float lastX   = 0.0f;
-  float lastY   = 0.0f;
+  std::unique_ptr<GridRenderer>  gridRenderer;
+  std::shared_ptr<GraphRenderer> graphRenderer;
 
-  float dx = 0.0f;
-  float dy = 0.0f;
+  Grid mainGrid;
 
-  glm::vec3 camTarget   = glm::vec3(0.0f);
-  float     camDistance = 5.0f;
-  float     camYaw      = 0.0f;
-  float     camPitch    = 0.0f;
+  std::shared_ptr<Graph>                 currentGraph;
+  std::shared_ptr<GraphStatistics>       currentGraphStats;
+  std::shared_ptr<GraphLayoutStatistics> currentGrapLayoutStatistics;
+  std::shared_ptr<GraphLayout>           currentGraphLayout;
+
+  GeneratorController* currentGenerator = 0;
+  LayoutController*    currentLayout    = 0;
 
   void reloadGraphStats() {
     static Graph* cached = 0;
@@ -75,22 +58,16 @@ class ViewImpl : public View {
 
     cached = currentGraph.get();
 
-    stats.nodeCount = currentGraph->getVertexCount();
-    stats.edgeCount = currentGraph->getEdgeCount();
+    currentGraphStats->reload(currentGraph);
   }
 
-  void resetCamera() {
-    panning     = false;
-    lastX       = 0.0f;
-    lastY       = 0.0f;
-    dx          = 0.0f;
-    dy          = 0.0f;
-    camTarget   = glm::vec3(0.0f);
-    camDistance = 5.0f;
-    camYaw      = 0.0f;
-    camPitch    = 0.0f;
+  void reloadLayoutStats() {
+    currentGrapLayoutStatistics->reload(currentGraph, currentGraphLayout);
+  }
 
-    camera.updateMatrices();
+
+  void resetGraph(std::shared_ptr<Graph> graph) {
+    this->currentGraph = graph;
   }
 
   void renderMenu() {
@@ -102,7 +79,7 @@ class ViewImpl : public View {
 
       ImGui::Separator();
       ImGui::Text("Meshing Options");
-      ImGui::SliderFloat("EdgeLineThickness", &rendererConfiguration.lineThickness, 0.00001f, 0.002f);
+      ImGui::SliderFloat("EdgeLineThickness", &rendererConfiguration.lineThickness, 0.00001f, 0.02f);
       if (currentGraph != nullptr && currentGraphLayout != nullptr && ImGui::Button("Remesh")) {
         graphRenderer->remesh();
       }
@@ -110,41 +87,10 @@ class ViewImpl : public View {
       ImGui::Separator();
 
       ImGui::Text("Rendering info");
-      ImGui::Text("Layout centroid: %f %f %f", stats.centroid.x, stats.centroid.y, stats.centroid.z);
+      ImGui::Text("Layout centroid: %f %f %f", currentGraphStats->centroid.x, currentGraphStats->centroid.y, currentGraphStats->centroid.z);
 
       ImGui::Separator();
 
-      ImGui::Text("Camera State");
-      ImGui::Separator();
-
-      ImGui::Text("Target:");
-      ImGui::BulletText("X: %.3f", camTarget.x);
-      ImGui::BulletText("Y: %.3f", camTarget.y);
-      ImGui::BulletText("Z: %.3f", camTarget.z);
-
-      ImGui::Spacing();
-
-      ImGui::Text("Orientation:");
-      ImGui::BulletText("Yaw:   %.3f rad", camYaw);
-      ImGui::BulletText("Pitch: %.3f rad", camPitch);
-
-      ImGui::Spacing();
-
-      ImGui::Text("Distance:");
-      ImGui::BulletText("Radius: %.3f", camDistance);
-
-      ImGui::Spacing();
-
-      ImGui::Text("Input State:");
-      ImGui::BulletText("Panning: %s", panning ? "true" : "false");
-      ImGui::BulletText("Delta X: %.3f", dx);
-      ImGui::BulletText("Delta Y: %.3f", dy);
-
-      ImGui::Separator();
-
-      if (ImGui::Button("Force Reset Camera")) {
-        resetCamera();
-      }
 
       ImGui::End();
     }
@@ -182,28 +128,9 @@ class ViewImpl : public View {
     }
   }
 
-  void reloadLayoutStats() {
-    glm::vec3 centroid = glm::vec3(0.0);
-
-    for (int i = 0; i < currentGraphLayout->positions.size(); i++) {
-      centroid += currentGraphLayout->positions[i];
-    }
-
-    centroid *= 1.0f / (float)currentGraphLayout->positions.size();
-
-    stats.centroid  = centroid;
-    stats.transform = glm::translate(glm::mat4(1.0f), -centroid);
-
-    stats.nodeCountLayout = currentGraphLayout->positions.size();
-  }
-
   void statsMenu() {
     if (showGraphStats && ImGui::Begin("Stats", &showGraphStats)) {
-      ImGui::Text("Graph stats popup");
-      ImGui::Text("Node count: %lu", stats.nodeCount);
-      ImGui::Text("Node edge count: %lu", stats.edgeCount);
-      ImGui::Separator();
-      ImGui::Text("Node count layout: %lu", stats.nodeCountLayout);
+      currentGraphStats->ui();
       ImGui::End();
     }
   }
@@ -261,26 +188,55 @@ class ViewImpl : public View {
     ImGui::End();
   }
   void generateMenu() {
+    if (!showGenerateMenu)
+      return;
 
-    if (showGenerateMenu && ImGui::Begin("Generate", &showGenerateMenu)) {
+    if (ImGui::Begin("Generate", &showGenerateMenu)) {
       ImGui::Text("Graph generation menu");
+      ImGui::Separator();
 
-      ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
-      if (ImGui::BeginTabBar("Generators", tab_bar_flags)) {
-        for (auto* gen : application::getGenerators()) {
-          if (ImGui::BeginTabItem(gen->getName().c_str())) {
+      auto generators = application::getGenerators();
+
+      if (!currentGenerator && !generators.empty()) {
+        currentGenerator = generators.front();
+      }
+
+      if (ImGui::BeginCombo("Generator", currentGenerator ? currentGenerator->getName().c_str() : "None")) {
+
+        for (auto* gen : generators) {
+          bool selected = (gen == currentGenerator);
+          if (ImGui::Selectable(gen->getName().c_str(), selected)) {
             currentGenerator = gen;
-            currentGenerator->configureUI();
-            ImGui::EndTabItem();
           }
+          if (selected)
+            ImGui::SetItemDefaultFocus();
         }
-        ImGui::EndTabBar();
 
-        if (ImGui::Button("Generate")) {
-          currentGraph = currentGenerator->generate();
-          reloadGraphStats();
+        ImGui::EndCombo();
+      }
+
+      ImGui::Spacing();
+      ImGui::Separator();
+      ImGui::Spacing();
+
+      if (currentGenerator) {
+        currentGenerator->configureUI();
+      }
+
+      ImGui::Spacing();
+      ImGui::Separator();
+      ImGui::Spacing();
+
+      if (ImGui::Button("Generate") && currentGenerator) {
+        resetGraph(currentGenerator->generate());
+        reloadGraphStats();
+
+        if (currentGraphLayout) {
+          currentGraphLayout = currentLayout->layout(currentGraph);
+          reloadLayoutStats();
         }
       }
+
       ImGui::End();
     }
   }
@@ -333,14 +289,12 @@ class ViewImpl : public View {
     }
   }
 
-  void initCamera(Camera& cam) {
-    cam.view = glm::lookAt(glm::vec3(0, 0, 5), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-  }
-
-  virtual void init(display::Window* window) override {
+  void init(display::Window* window) override {
     this->appWindow = window;
 
-    gridRenderer = std::make_unique<GridRenderer>();
+    currentGraphStats           = std::make_shared<GraphStatistics>();
+    currentGrapLayoutStatistics = std::make_shared<GraphLayoutStatistics>();
+    gridRenderer                = std::make_unique<GridRenderer>();
 
     mainGrid.resolution = 1.0f;
     mainGrid.distance   = 1000.0f;
@@ -350,91 +304,18 @@ class ViewImpl : public View {
     graphRenderer = createRegularRenderer();
     graphRenderer->init();
 
-    initCamera(camera);
+    camera.initCamera();
   }
 
-  inline void updateArcballCamera(Camera& cam) {
-    camPitch = glm::clamp(camPitch, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
-
-    glm::vec3 offset;
-    offset.x = camDistance * cos(camPitch) * sin(camYaw);
-    offset.y = camDistance * sin(camPitch);
-    offset.z = camDistance * cos(camPitch) * cos(camYaw);
-
-    glm::vec3 camPos = camTarget + offset;
-
-    cam.view = glm::lookAt(camPos, camTarget, glm::vec3(0, 1, 0));
-    cam.updateMatrices();
-  }
-
-  inline void panArcballCamera(Camera& cam, float dx, float dy, bool panning, float panSpeed = 0.002f) {
-    if (!panning) return;
-
-    glm::vec3 right = glm::normalize(glm::vec3(cam.invView[0]));
-    glm::vec3 up    = glm::normalize(glm::vec3(cam.invView[1]));
-
-    glm::vec3 delta = (-right * dx + up * dy) * panSpeed * camDistance;
-    camTarget += delta;
-
-    updateArcballCamera(cam);
-  }
-
-  inline void zoomArcballCamera(Camera& cam, float zoomDelta, float zoomSpeed = 0.1f) {
-    if (zoomDelta == 0.0f) return;
-
-    camDistance = glm::max(0.01f, camDistance - zoomDelta * zoomSpeed);
-    updateArcballCamera(cam);
-  }
-
-  inline void rotateArcballCamera(Camera& cam, float dx, float dy, bool rotating, float rotateSpeed = 0.005f) {
-    if (!rotating) return;
-
-    camYaw += -dx * rotateSpeed;
-    camPitch += -dy * rotateSpeed;
-
-    updateArcballCamera(cam);
-  }
-
-  void cameraControl(Camera& cam) {
-    float aspect = appWindow->getWidth() / appWindow->getHeight();
-
-    cam.proj = glm::perspective(
-      glm::radians(60.0f),
-      aspect,
-      0.1f,
-      1000.0f);
-    cam.updateMatrices();
-
-    float x = (float)appWindow->getX();
-    float y = (float)appWindow->getY();
-
-    dx = x - lastX;
-    dy = y - lastY;
-
-    lastX = x;
-    lastY = y;
-
-    bool rotating = appWindow->clickOn();
-    bool panning  = appWindow->clickOnRight();
-
-    rotateArcballCamera(cam, dx, dy, rotating);
-    panArcballCamera(cam, dx, dy, panning);
-
-    float scroll = appWindow->getScroll();
-    zoomArcballCamera(cam, scroll);
-  }
 
   virtual void render(float dt) override {
     reloadGraphStats();
-
-    if (!ImGui::GetIO().WantCaptureMouse) {
-      cameraControl(camera);
-    }
+    camera.cameraControl(appWindow);
 
     MainMenuUI();
 
     if (gridRenderer) {
-      gridRenderer->render(mainGrid, camera);
+      gridRenderer->render(mainGrid, camera.cam);
     }
 
     GraphRendererEntity ent;
@@ -442,7 +323,7 @@ class ViewImpl : public View {
     ent.layout = currentGraphLayout;
 
     if (ent.graph != nullptr && ent.layout != nullptr) {
-      graphRenderer->render(ent, camera, glm::scale(glm::mat4(1.0f), glm::vec3(renderScale)) * stats.transform);
+      graphRenderer->render(ent, camera.cam, glm::scale(glm::mat4(1.0f), glm::vec3(renderScale)) * currentGrapLayoutStatistics->transform);
     }
 
     generateMenu();
