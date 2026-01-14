@@ -42,6 +42,7 @@ struct GraphRendererRegular : public GraphRenderer {
   GLuint              nodeVAO;
   GLuint              nodeVBO;
   GLuint              nodeVBODegree;
+  GLuint              nodeVBOColor;
   GLuint              edgeVAO;
   GLuint              edgeVBO;
   GLuint              nodeProgram;
@@ -53,17 +54,18 @@ struct GraphRendererRegular : public GraphRenderer {
   GLuint uCameraPos;
   GLuint uEdgeViewProj;
   GLuint uEdgeColor;
+  GLuint uAlphaAmount;
+  GLuint uColorMode;
 
   uint64_t vertexCountEdge = 0;
   uint64_t vertexCountNode = 0;
 
-  bool confRenderEdges = true;
-  bool confRenderNodes = true;
 
   void initNodeVao() {
     glGenVertexArrays(1, &nodeVAO);
     glGenBuffers(1, &nodeVBO);
     glGenBuffers(1, &nodeVBODegree);
+    glGenBuffers(1, &nodeVBOColor);
 
     glBindVertexArray(nodeVAO);
     glBindBuffer(GL_ARRAY_BUFFER, nodeVBO);
@@ -75,6 +77,11 @@ struct GraphRendererRegular : public GraphRenderer {
 
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, nodeVBOColor);
+
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
 
     glBindVertexArray(0);
   }
@@ -101,6 +108,10 @@ struct GraphRendererRegular : public GraphRenderer {
     uNodeCenter   = glGetUniformLocation(nodeProgram, "uCenter");
     uNodeRadius   = glGetUniformLocation(nodeProgram, "uRadius");
     uCameraPos    = glGetUniformLocation(nodeProgram, "uCameraPos");
+
+
+    uColorMode   = glGetUniformLocation(nodeProgram, "uColorMode");
+    uAlphaAmount = glGetUniformLocation(nodeProgram, "uAlphaAmount");
 
     // Edge program uniforms
     uEdgeViewProj = glGetUniformLocation(edgeProgram, "uViewProj");
@@ -133,6 +144,11 @@ struct GraphRendererRegular : public GraphRenderer {
 
     glBindBuffer(GL_ARRAY_BUFFER, nodeVBODegree);
     glBufferData(GL_ARRAY_BUFFER, entity.graph->getVertexCount(), nodeDegreesFloat.data(), GL_DYNAMIC_DRAW);
+
+    if (entity.layout->colors.size() > 0) {
+      glBindBuffer(GL_ARRAY_BUFFER, nodeVBOColor);
+      glBufferData(GL_ARRAY_BUFFER, entity.layout->colors.size() * sizeof(glm::vec3), entity.layout->colors.data(), GL_DYNAMIC_DRAW);
+    }
 
     vertexCountNode = entity.layout->positions.size();
   }
@@ -184,9 +200,10 @@ struct GraphRendererRegular : public GraphRenderer {
 
     mvp = camera.combined * transform;
 
-    if (confRenderEdges && vertexCountEdge > 0) {
-      glEnable(GL_BLEND);
-      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    if (configuration.confRenderEdges && vertexCountEdge > 0) {
 
       glUseProgram(edgeProgram);
       glBindVertexArray(edgeVAO);
@@ -199,11 +216,19 @@ struct GraphRendererRegular : public GraphRenderer {
       glDrawArrays(GL_TRIANGLES, 0, vertexCountEdge);
     }
 
-    if (confRenderNodes && vertexCountNode > 0) {
+    if (configuration.confRenderNodes && vertexCountNode > 0) {
 
       glUseProgram(nodeProgram);
       glBindVertexArray(nodeVAO);
 
+      if (configuration.colorMode) {
+        glEnableVertexAttribArray(2);
+      } else {
+        glDisableVertexAttribArray(2);
+      }
+
+      glUniform1f(uAlphaAmount, configuration.alphaAmount);
+      glUniform1i(uColorMode, configuration.colorMode);
       glEnable(GL_PROGRAM_POINT_SIZE);
       glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
 
@@ -216,8 +241,9 @@ struct GraphRendererRegular : public GraphRenderer {
       glDrawArrays(GL_POINTS, 0, vertexCountNode);
 
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-      glDisable(GL_BLEND);
     }
+
+    glDisable(GL_BLEND);
   }
 
   void destroy() {

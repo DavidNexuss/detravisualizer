@@ -79,10 +79,32 @@ class ViewImpl : public View {
 
       ImGui::Separator();
       ImGui::Text("Meshing Options");
-      ImGui::SliderFloat("EdgeLineThickness", &rendererConfiguration.lineThickness, 0.00001f, 0.02f);
+
       if (currentGraph != nullptr && currentGraphLayout != nullptr && ImGui::Button("Remesh")) {
         graphRenderer->remesh();
       }
+
+      ImGui::SliderFloat(
+        "Line Thickness",
+        &rendererConfiguration.lineThickness,
+        0.00001f,
+        0.01f,
+        "%.6f",
+        ImGuiSliderFlags_Logarithmic);
+
+      ImGui::Checkbox("Color Mode", &rendererConfiguration.colorMode);
+
+      ImGui::SliderFloat(
+        "Alpha Amount",
+        &rendererConfiguration.alphaAmount,
+        0.0f,
+        1.0f,
+        "%.2f");
+
+      ImGui::Separator();
+
+      ImGui::Checkbox("Render Edges", &rendererConfiguration.confRenderEdges);
+      ImGui::Checkbox("Render Nodes", &rendererConfiguration.confRenderNodes);
 
       ImGui::Separator();
 
