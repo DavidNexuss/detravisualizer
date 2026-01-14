@@ -109,29 +109,6 @@ struct Shell3DCreateInfoGUI : public graphs::position::Shell3DCreateInfo, Layout
     return "Shell3D";
   }
 };
-struct ACILayoutGUI : public graphs::position::AlgorithmACI, public LayoutController {
-
-  void configureUI() override {
-    ImGui::SeparatorText("ACI Layout");
-
-    ImGui::InputFloat("Major Distance", &majorDistance);
-
-    majorDistance = std::max(majorDistance, 0.0f);
-  }
-
-  std::shared_ptr<GraphLayout> layout(std::shared_ptr<Graph> graph) override {
-    ptableCache.reset();
-
-    auto graphlayout = ptableCache.getPositionTable(graph, this);
-    graphs::position::aci(*graph, graphlayout, static_cast<const graphs::position::AlgorithmACI&>(*this));
-
-    return graphlayout;
-  }
-
-  std::string getName() override {
-    return "ACI";
-  }
-};
 struct LinLogCreateInfoGUI : public graphs::position::LinLogCreateInfo, LayoutController {
   void configureUI() override {
     ImGui::SeparatorText("LinLog");
@@ -418,6 +395,97 @@ struct StressMajorizationCreateInfoGUI : public graphs::position::StressMajoriza
 
   std::string getName() override {
     return "Stress Majorization";
+  }
+};
+
+struct ACILayoutGUI : public graphs::position::AlgorithmACI, public LayoutController {
+  graphs::position::AlgorithmACI newCi;
+
+  bool _shouldLayout = false;
+  bool _huboptimize  = false;
+
+  int   iterationCount         = 10;
+  float forceMultiplier        = 20.0f;
+  float delta                  = 0.1f;
+  float hubThreshold           = 0.11f;
+  float treecapitationBase     = 4.0f;
+  float treecapitationExponent = 0.0f;
+  int   selection;
+
+  ImVec2 interp[3];
+
+  void configureUI() override {
+    ImGui::SeparatorText("ACI Layout");
+
+    ImGui::SliderFloat("Major Distance", &newCi.majorDistance, 0.0f, 200.0f);
+    ImGui::SliderFloat("Minor Distance", &newCi.minorDistance, 0.0f, 100.0f);
+    ImGui::SliderFloat("TreeCapitation", &treecapitationBase, 0.0f, 50.0f);
+    ImGui::InputFloat("TreeCapitation (Exp)", &treecapitationExponent, 0.0f, 50.0f);
+    ImGui::SliderFloat("Log Tolerance", &newCi.logtolerance, 0.0f, 1.0f);
+    ImGui::SliderFloat("Jitter", &newCi.jitter, 0.0f, 1.0f);
+    ImGui::SliderFloat("Minimal", &newCi.minimal, 0.0f, 1.0f);
+    ImGui::InputFloat("Offset", &newCi.offset);
+
+    newCi.treecapitation = treecapitationBase * std::pow(10.0f, treecapitationExponent);
+
+    if (!(newCi == *this)) {
+      _shouldLayout  = true;
+      majorDistance  = newCi.majorDistance;
+      minorDistance  = newCi.minorDistance;
+      treecapitation = newCi.treecapitation;
+      logtolerance   = newCi.logtolerance;
+      jitter         = newCi.jitter;
+      minimal        = newCi.minimal;
+      offset         = newCi.offset;
+    }
+
+    ImGui::Separator();
+
+    ImGui::Text("Hub optimize");
+    ImGui::InputFloat("Force multiplier", &forceMultiplier);
+    ImGui::InputFloat("Delta", &delta);
+    ImGui::InputInt("IterationCount", &iterationCount);
+    ImGui::SliderFloat("HubThreshold", &hubThreshold, 0.0f, 1.0f);
+
+    if (!_huboptimize)
+      _huboptimize = ImGui::Button("Start");
+
+    if (_huboptimize) {
+      _huboptimize = !ImGui::Button("Stop");
+      treecapitatorReset();
+    }
+
+    majorDistance = std::max(majorDistance, 0.0f);
+  }
+
+  std::shared_ptr<GraphLayout> layout(std::shared_ptr<Graph> graph) override {
+    ptableCache.reset();
+
+    auto graphlayout = ptableCache.getPositionTable(graph, this);
+    graphs::position::treecapitator(*graph, graphlayout, static_cast<const graphs::position::AlgorithmACI&>(*this));
+    treecapitatorReset();
+
+    return graphlayout;
+  }
+
+  void optimize(std::shared_ptr<Graph> graph, std::shared_ptr<GraphLayout> layout) override {
+    graphs::position::treecapitatorForceDirected(graph, static_cast<const graphs::position::AlgorithmACI&>(*this), layout, iterationCount, delta, forceMultiplier, hubThreshold);
+  }
+
+  bool shouldLayout() override {
+    if (_shouldLayout) {
+      _shouldLayout = false;
+      return true;
+    }
+    return false;
+  }
+
+  bool shouldOptimize() override {
+    return _huboptimize;
+  }
+
+  std::string getName() override {
+    return "TreeCapitator";
   }
 };
 

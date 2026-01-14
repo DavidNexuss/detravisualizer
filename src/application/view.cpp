@@ -318,6 +318,16 @@ class ViewImpl : public View {
       gridRenderer->render(mainGrid, camera.cam);
     }
 
+    if (currentGraph && currentLayout && currentLayout->shouldLayout()) {
+      currentGraphLayout = currentLayout->layout(currentGraph);
+      reloadLayoutStats();
+    }
+
+    if (currentGraph && currentLayout && currentLayout->shouldOptimize()) {
+      currentLayout->optimize(currentGraph, currentGraphLayout);
+      graphRenderer->remesh();
+    }
+
     GraphRendererEntity ent;
     ent.graph  = currentGraph;
     ent.layout = currentGraphLayout;
@@ -338,5 +348,4 @@ class ViewImpl : public View {
 View* createView() {
   return new ViewImpl;
 }
-
 } // namespace application
