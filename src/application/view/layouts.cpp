@@ -10,6 +10,7 @@
 #include <application/experiment/algorithmA.hpp>
 #include <application/experiment/sunflower.hpp>
 #include <imgui/imgui.h>
+#include <external/imbezier/curve.hpp>
 #include "../view.hpp"
 
 namespace application {
@@ -410,9 +411,9 @@ struct ACILayoutGUI : public graphs::position::AlgorithmACI, public LayoutContro
   float hubThreshold           = 0.11f;
   float treecapitationBase     = 4.0f;
   float treecapitationExponent = 0.0f;
-  int   selection;
+  int   selection              = tween::CUBICIN;
 
-  ImVec2 interp[3];
+  bool showDebug = false;
 
   void configureUI() override {
     ImGui::SeparatorText("ACI Layout");
@@ -422,13 +423,22 @@ struct ACILayoutGUI : public graphs::position::AlgorithmACI, public LayoutContro
     ImGui::SliderFloat("TreeCapitation", &treecapitationBase, 0.0f, 50.0f);
     ImGui::InputFloat("TreeCapitation (Exp)", &treecapitationExponent, 0.0f, 50.0f);
     ImGui::SliderFloat("Log Tolerance", &newCi.logtolerance, 0.0f, 1.0f);
-    ImGui::SliderFloat("Jitter", &newCi.jitter, 0.0f, 1.0f);
     ImGui::SliderFloat("Minimal", &newCi.minimal, 0.0f, 1.0f);
     ImGui::InputFloat("Offset", &newCi.offset);
+    ImGui::SliderFloat("Threshold", &newCi.nodeThreshold, 0.0f, 1.0f);
+
+    int modified = ImGui::Curve("Curve", ImVec2(400, 200), 3, (ImVec2*)newCi.interp, &selection);
+    ImGui::Checkbox("Interpolation", &newCi.interpolation);
 
     newCi.treecapitation = treecapitationBase * std::pow(10.0f, treecapitationExponent);
 
-    if (!(newCi == *this)) {
+    ImGui::SliderFloat("C", &newCi.cv, 0.0f, 8.0f);
+    ImGui::SliderFloat("B", &newCi.bv, 0.0f, 8.0f);
+    ImGui::SliderFloat("A", &newCi.av, 0.0f, 8.0f);
+    ImGui::Separator();
+
+
+    if (!(newCi == *this) || modified) {
       _shouldLayout  = true;
       majorDistance  = newCi.majorDistance;
       minorDistance  = newCi.minorDistance;
@@ -437,9 +447,16 @@ struct ACILayoutGUI : public graphs::position::AlgorithmACI, public LayoutContro
       jitter         = newCi.jitter;
       minimal        = newCi.minimal;
       offset         = newCi.offset;
-    }
+      interpolation  = newCi.interpolation;
+      nodeThreshold  = newCi.nodeThreshold;
 
-    ImGui::Separator();
+      av = newCi.av;
+      bv = newCi.bv;
+      cv = newCi.cv;
+
+      for (int i = 0; i < 3; i++)
+        interp[i] = newCi.interp[i];
+    }
 
     ImGui::Text("Hub optimize");
     ImGui::InputFloat("Force multiplier", &forceMultiplier);
@@ -456,6 +473,14 @@ struct ACILayoutGUI : public graphs::position::AlgorithmACI, public LayoutContro
     }
 
     majorDistance = std::max(majorDistance, 0.0f);
+
+    ImGui::Checkbox("ShowDebug", &showDebug);
+    if (showDebug) {
+      ImGui::Separator();
+      ImGui::Text("%f %f", interp[0].x, interp[0].y);
+      ImGui::Text("%f %f", interp[1].x, interp[1].y);
+      ImGui::Text("%f %f", interp[2].x, interp[2].y);
+    }
   }
 
   std::shared_ptr<GraphLayout> layout(std::shared_ptr<Graph> graph) override {
