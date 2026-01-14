@@ -4,19 +4,139 @@
 #include <glm/gtc/constants.hpp>
 #include <metrics.hpp>
 #include <unordered_set>
-#include <application/util.hpp>
 #include <memory>
+#include <application/domain.hpp>
+#include <application/util.hpp>
+
 
 namespace graphs {
 namespace position {
 struct AlgorithmACI {
-  float majorDistance = 100.0f;
+  float majorDistance  = 100.0f;
+  float minorDistance  = 2.0f;
+  float treecapitation = 5.0f;
+  float logtolerance   = 0.0f;
+  float jitter         = 1.0f;
+  float minimal        = 0.0f;
+  float offset         = 0.0f;
+
+  inline bool operator==(const AlgorithmACI& other) const {
+    return other.minorDistance == minorDistance && other.majorDistance == majorDistance && other.treecapitation == treecapitation && other.logtolerance == logtolerance && other.jitter == jitter && other.minimal == minimal && offset == other.offset;
+  }
 };
 
 static random_sources::XORand source;
 
+inline glm::vec3 randomDirection() {
+
+  glm::vec3 dir;
+  do {
+    dir = glm::vec3(
+      source.randf() * 2.0f - 1.0f,
+      source.randf() * 2.0f - 1.0f,
+      source.randf() * 2.0f - 1.0f);
+  } while (glm::dot(dir, dir) < 1e-4f);
+
+  dir = glm::normalize(dir);
+  return dir;
+}
+
+
+template <typename T>
+std::vector<float> softmin(const std::vector<T>& x, double tau) {
+  std::vector<float> weights(x.size());
+
+  if (x.empty())
+    return weights;
+
+  T min_x = *std::min_element(x.begin(), x.end());
+
+  float sum = 0.0;
+  for (size_t i = 0; i < x.size(); ++i) {
+    weights[i] = std::exp(-((float)(x[i] - min_x)) / tau);
+    sum += weights[i];
+  }
+
+  for (float& w : weights)
+    w /= sum;
+
+  return weights;
+}
+
+
 template <typename Graph>
-void aci(Graph& graph, std::shared_ptr<GraphLayout> layout, AlgorithmACI ci) {
+void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& positions, std::unordered_set<uint32_t> ignore, std::vector<uint32_t>& degreeSequence, std::vector<uint32_t>& degrees) {
+
+  source = random_sources::XORand();
+
+
+  float maxDegree    = graph.getEdgeCount(degreeSequence[0]);
+  float maxDegreeLog = std::log(maxDegree + 1);
+
+  std::unordered_set<uint32_t> placed;
+
+  //Calculate postions A and B
+  for (uint32_t node : degreeSequence) {
+
+    if (ignore.count(node)) {
+      placed.insert(node);
+      continue;
+    }
+
+    glm::vec3 A = glm::vec3(0.0f);
+    glm::vec3 B = glm::vec3(0.0f);
+    glm::vec3 C = glm::vec3(0.0f);
+
+    //Computation of A
+    //How relevant is this node as peer, based on how meaninful are its connection to its peers
+    {
+      std::vector<glm::vec3> relevantPositions;
+      std::vector<uint32_t>  relevantDegrees;
+
+      // Only look for nodes that already have a position in the layout, which are guranteed to have higher degree
+      for (uint32_t c : graph.getEdges(node)) {
+        if (placed.count(c)) {
+          relevantPositions.push_back(positions[c]);
+          relevantDegrees.push_back(graph.getEdgeCount(c));
+        }
+      }
+
+      auto weights = softmin(relevantDegrees, ci.treecapitation);
+      for (uint32_t i = 0; i < weights.size(); i++) {
+        A += weights[i] * relevantPositions[i];
+      }
+    }
+
+    //Computation of B
+    {
+      B = randomDirection() * ci.majorDistance;
+    }
+
+    //Computation of C
+    {
+      C = randomDirection() * ci.minorDistance;
+    }
+
+    // Decide how meaniful is this node as hub or peer based on its node degree compared against the maximal node
+    float tnor = graph.getEdgeCount(node) / maxDegree;
+    float tlog = std::log(graph.getEdgeCount(node) + 0.0001f) / maxDegreeLog;
+
+    float t = ci.logtolerance * tlog + (1 - ci.logtolerance) * tnor;
+
+    // Place the node, linear interpolation of A and B
+    positions[node] = (t + ci.minimal) * B + (1 - t) * A + C * ci.jitter;
+    placed.insert(node);
+  }
+
+  // Donut
+  for (uint32_t node : degreeSequence) {
+    if (ignore.count(node)) continue;
+    positions[node] = (glm::length(positions[node]) + ci.offset) * glm::normalize(positions[node]);
+  }
+}
+
+template <typename Graph>
+void treecapitator(Graph& graph, std::shared_ptr<GraphLayout> layout, AlgorithmACI ci) {
   if (graph.getVertexCount() == 0) return;
 
   // Gets degree of each node
@@ -31,78 +151,113 @@ void aci(Graph& graph, std::shared_ptr<GraphLayout> layout, AlgorithmACI ci) {
     return degrees[lhs] > degrees[rhs];
   });
 
-  // log of greatest degree
-  float maxDegree = std::log(graph.getEdgeCount(degreeSequence[0]) + 1);
-
   std::vector<glm::vec3> positions(graph.getVertexCount());
 
-  std::unordered_set<uint32_t> placed;
-
-  //Calculate postions A and B
-  for (uint32_t node : degreeSequence) {
-
-    glm::vec3 A = glm::vec3(0.0f);
-    glm::vec3 B = glm::vec3(0.0f);
-
-    //Computation of A
-    //How relevant is this node as peer, based on how meaninful are its connection to its peers
-    {
-      std::vector<uint32_t>  relevant;
-      std::vector<glm::vec3> relevantPositions;
-
-      // Only look for nodes that already have a position in the layout, which are guranteed to have higher degree
-      for (uint32_t c : graph.getEdges(node)) {
-        if (placed.count(c)) {
-          relevant.push_back(c);
-          relevantPositions.push_back(positions[c]);
-        }
-      }
-
-      float totalNeighbourWeight = 0.0f;
-
-      for (uint32_t u : relevant) {
-        totalNeighbourWeight += std::log(graph.getEdgeCount(u) + 1.0f);
-      }
-
-      float totalWeight = 0.0f;
-      //Maximize centroid position around most meaningful nodes, probably this will need a scaling over the actual weight
-      for (int i = 0; i < relevant.size(); i++) {
-        float w = 1.0 - (std::log(graph.getEdgeCount(relevant[i]) + 1.0f) / totalNeighbourWeight);
-        totalWeight += w;
-        A += w * relevantPositions[i];
-      }
-
-      if (totalWeight > 0.0f)
-        A /= totalWeight;
-    }
-
-    //Copmutation of B
-    {
-      glm::vec3 dir;
-      do {
-        dir = glm::vec3(
-          source.randf() * 2.0f - 1.0f,
-          source.randf() * 2.0f - 1.0f,
-          source.randf() * 2.0f - 1.0f);
-      } while (glm::dot(dir, dir) < 1e-4f);
-
-      dir = glm::normalize(dir);
-
-      float r = ci.majorDistance;
-
-      B = dir * r;
-    }
-
-    // Decide how meaniful is this node as hub or peer based on its node degree compared against the maximal node
-    float t = std::log(graph.getEdgeCount(node) + 1) / maxDegree;
-
-    // Place the node, linear interpolation of A and B
-    positions[node] = t * B + (1 - t) * A;
-    placed.insert(node);
-  }
+  treecapitatorstep(graph, ci, positions, {}, degreeSequence, degrees);
 
   layout->positions = positions;
 }
 
+
+
+struct ComputeContext {
+  std::shared_ptr<graphs::Graph<graphs::backends::AdjacencyListVector>> lastGraph;
+
+  std::vector<glm::vec3> velocity;
+  std::vector<float>     lengths;
+  std::vector<float>     weights;
+  std::vector<uint32_t>  hubs;
+  std::vector<uint32_t>  degrees;
+  std::vector<uint32_t>  degreeSequence;
+};
+
+static ComputeContext ctx = {};
+
+
+void treecapitatorReset() {
+  ctx = {};
+}
+template <typename Graph>
+void treecapitatorForceDirected(std::shared_ptr<Graph> graph, AlgorithmACI ci, std::shared_ptr<GraphLayout> layout, int iterations, float delta, float k, float HubThreshold) {
+  if (layout == nullptr) return;
+  if (graph == nullptr) return;
+
+  if (ctx.lastGraph != graph) {
+    ctx           = {};
+    ctx.lastGraph = graph;
+
+    // Yes I know, inconsitent naming
+    ctx.degrees = metrics::degree_sequence(*graph);
+
+    ctx.degreeSequence = std::vector<uint32_t>(graph->getVertexCount());
+
+    //Typing laziness
+    auto& indices = ctx.degreeSequence;
+
+    std::iota(indices.begin(), indices.end(), 0);
+    std::sort(indices.begin(), indices.end(), [&](const auto& lhs, const auto& rhs) {
+      return ctx.degrees[lhs] > ctx.degrees[rhs];
+    });
+
+    int topK = 0;
+
+    for (int i = 0; i < indices.size(); i++) {
+      if (ctx.degrees[indices[i]] >= (ctx.degrees[indices[0]] * HubThreshold)) topK++;
+      else
+        break;
+    }
+
+    ctx.velocity = std::vector<glm::vec3>(topK);
+    ctx.lengths  = std::vector<float>(topK);
+    ctx.weights  = std::vector<float>(topK);
+
+    ctx.hubs = indices;
+    ctx.hubs.resize(topK);
+
+    for (uint32_t i = 0; i < topK; i++) {
+      ctx.lengths[i] = glm::length(layout->positions[indices[i]]);
+      ctx.weights[i] = graph->getEdgeCount(indices[i]) / (float)graph->getEdgeCount(indices[0]);
+    }
+  }
+
+  // We want to keep the vector magnitudes
+  std::vector<glm::vec3>& positions = layout->positions;
+
+  for (int i = 0; i < iterations; i++) {
+    for (uint32_t u = 0; u < ctx.hubs.size(); u++) {
+      uint32_t  uindex = ctx.hubs[u];
+      glm::vec3 force  = glm::vec3(0.0f);
+
+      for (uint32_t v = 0; v < ctx.hubs.size(); v++) {
+        if (u == v) continue;
+
+        uint32_t  vindex = ctx.hubs[v];
+        glm::vec3 d      = positions[uindex] - positions[vindex];
+
+        float len = glm::length(d);
+
+        if (len < 1e-4f) { len = 1e-4f; }
+
+        float w = k * ctx.weights[u] * ctx.weights[v] / (len * len);
+
+        force += (d * (1.0f / len) * w);
+      }
+
+      ctx.velocity[u] += force * delta;
+    }
+
+    for (uint32_t u = 0; u < ctx.hubs.size(); u++) {
+      positions[u] += ctx.velocity[u] * delta;
+      positions[u] = glm::normalize(positions[u]);
+      positions[u] = positions[u] * ctx.lengths[u];
+    }
+  }
+
+  std::unordered_set<uint32_t> ignore;
+
+  for (uint32_t u = 0; u < ctx.hubs.size(); u++) ignore.insert(ctx.hubs[u]);
+
+  treecapitatorstep(*graph, ci, positions, ignore, ctx.degreeSequence, ctx.degrees);
+}
 } // namespace position
 } // namespace graphs

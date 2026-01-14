@@ -15,6 +15,10 @@ struct LayoutController {
   virtual std::string                  getName()                      = 0;
   virtual void                         configureUI()                  = 0;
   virtual std::shared_ptr<GraphLayout> layout(std::shared_ptr<Graph>) = 0;
+  virtual void                         optimize(std::shared_ptr<Graph>, std::shared_ptr<GraphLayout>){};
+
+  virtual bool shouldLayout() { return false; }
+  virtual bool shouldOptimize() { return false; }
 };
 
 struct View {
