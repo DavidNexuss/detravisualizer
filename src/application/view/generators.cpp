@@ -4,6 +4,26 @@
 #include "../view.hpp"
 
 namespace application {
+
+struct GraphEmpty : public GeneratorController {
+  std::string name = "Empty";
+
+  uint64_t nodeCount = 100;
+
+  const std::string& getName() override {
+    return name;
+  }
+
+  void configureUI() override {
+    ImGui::InputScalar("Nodes", ImGuiDataType_U64, &nodeCount);
+  }
+
+  std::shared_ptr<Graph> generate() override {
+    Graph graph;
+    graph.addVertices(nodeCount);
+    return std::make_shared<Graph>(std::move(graph));
+  }
+};
 struct GraphErdosRenyi : public GeneratorController {
   std::string name = "ErdosRenyi";
 
@@ -45,6 +65,50 @@ struct GraphBarabasiAlbert : public GeneratorController {
   std::shared_ptr<Graph> generate() override {
     return std::make_shared<Graph>(
       graphs::generators::barabasi_albert<Graph>(nodeCount, initialNodes, edgesPerNode));
+  }
+};
+
+struct GraphFactorFastSeed : public GeneratorController {
+  std::string name = "FactorGraphFastSeed";
+
+  uint64_t nodeCount = 100;
+  uint64_t gamma     = 1;
+  float    seed      = 1.0f;
+
+  const std::string& getName() override {
+    return name;
+  }
+
+  void configureUI() override {
+    ImGui::InputScalar("Nodes", ImGuiDataType_U64, &nodeCount);
+    ImGui::InputScalar("Gamma", ImGuiDataType_U64, &gamma);
+    ImGui::InputFloat("Seed", &seed);
+  }
+
+  std::shared_ptr<Graph> generate() override {
+    return std::make_shared<Graph>(
+      graphs::generators::factor_graph_fast_seed<Graph>(nodeCount, gamma, seed));
+  }
+};
+
+struct GraphFactorFast : public GeneratorController {
+  std::string name = "FactorGraphFast";
+
+  uint64_t nodeCount = 100;
+  uint64_t gamma     = 1;
+
+  const std::string& getName() override {
+    return name;
+  }
+
+  void configureUI() override {
+    ImGui::InputScalar("Nodes", ImGuiDataType_U64, &nodeCount);
+    ImGui::InputScalar("Gamma", ImGuiDataType_U64, &gamma);
+  }
+
+  std::shared_ptr<Graph> generate() override {
+    return std::make_shared<Graph>(
+      graphs::generators::factor_graph_fast<Graph>(nodeCount, gamma));
   }
 };
 
@@ -122,12 +186,18 @@ std::vector<GeneratorController*> getGenerators() {
   static GraphWattsStrogatz        wattsStrogatz;
   static GraphPreferentialDirected preferentialDirected;
   static GraphRecursiveTree        recursiveTree;
+  static GraphFactorFast           factor_graph_fast_seed;
+  static GraphFactorFastSeed       factor_graph_fast;
+  static GraphEmpty                graphEmpty;
 
   return {
     &erdosRenyi,
     &barabasiAlbert,
     &wattsStrogatz,
     &preferentialDirected,
-    &recursiveTree};
-}
+    &recursiveTree,
+    &factor_graph_fast_seed,
+    &factor_graph_fast,
+    &graphEmpty};
+};
 } // namespace application

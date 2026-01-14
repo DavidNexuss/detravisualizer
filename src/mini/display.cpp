@@ -5,6 +5,7 @@
 #include <external/imgui/imgui.h>
 #include <external/imgui/imgui_impl_glfw.h>
 #include <external/imgui/imgui_impl_opengl3.h>
+#include <implot/implot.h>
 
 namespace display {
 
@@ -43,6 +44,7 @@ struct GlfwWindow : public Window {
     glfwSetScrollCallback(handle, scrollCallback);
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImPlot::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
