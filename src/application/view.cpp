@@ -165,6 +165,9 @@ class ViewImpl : public View {
       ImGui::Checkbox("Render Edges", &rendererConfiguration.confRenderEdges);
       ImGui::Checkbox("Render Nodes", &rendererConfiguration.confRenderNodes);
 
+      ImGui::SliderFloat("Base Point Size", &rendererConfiguration.basePointSize, 0.0f, 15.0f);
+      ImGui::Checkbox("Perspective Point Size", &rendererConfiguration.perspectivePointSize);
+
       ImGui::Separator();
 
       ImGui::Text("Rendering info");

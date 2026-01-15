@@ -5,18 +5,30 @@ layout(location = 1) in float aDegree;
 layout(location = 2) in vec3  aColor;
 
 uniform mat4 uViewProj;
-uniform vec3 uCameraPos;
+
+uniform bool  uColorMode;
+uniform bool  uPerspectivePointSize;
+uniform float uBasePointSize;
 
 out float fDegree;
-out vec3 fColor;
-uniform bool uColorMode;
+out vec3  fColor;
 
 void main()
 {
-    gl_Position = uViewProj * vec4(aPosition, 1.0);
-    gl_PointSize = 6.0;
+    vec4 clipPos = uViewProj * vec4(aPosition, 1.0);
+    gl_Position = clipPos;
+
+    if (uPerspectivePointSize)
+    {
+        gl_PointSize = uBasePointSize / clipPos.w;
+    }
+    else
+    {
+        gl_PointSize = uBasePointSize;
+    }
+
     fDegree = aDegree;
 
-    if(uColorMode)
-      fColor = aColor;
+    if (uColorMode)
+        fColor = aColor;
 }
