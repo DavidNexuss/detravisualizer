@@ -56,6 +56,8 @@ struct GraphRendererRegular : public GraphRenderer {
   GLuint uEdgeColor;
   GLuint uAlphaAmount;
   GLuint uColorMode;
+  GLuint uBasePointSize;
+  GLuint uPerspectivePointSize;
 
   uint64_t vertexCountEdge = 0;
   uint64_t vertexCountNode = 0;
@@ -112,6 +114,9 @@ struct GraphRendererRegular : public GraphRenderer {
 
     uColorMode   = glGetUniformLocation(nodeProgram, "uColorMode");
     uAlphaAmount = glGetUniformLocation(nodeProgram, "uAlphaAmount");
+
+    uPerspectivePointSize = glGetUniformLocation(nodeProgram, "uPerspectivePointSize");
+    uBasePointSize        = glGetUniformLocation(nodeProgram, "uBasePointSize");
 
     // Edge program uniforms
     uEdgeViewProj = glGetUniformLocation(edgeProgram, "uViewProj");
@@ -227,6 +232,9 @@ struct GraphRendererRegular : public GraphRenderer {
       } else {
         glDisableVertexAttribArray(2);
       }
+
+      glUniform1i(uPerspectivePointSize, configuration.perspectivePointSize);
+      glUniform1f(uBasePointSize, configuration.basePointSize);
 
       glUniform1f(uAlphaAmount, configuration.alphaAmount);
       glUniform1i(uColorMode, configuration.colorMode);

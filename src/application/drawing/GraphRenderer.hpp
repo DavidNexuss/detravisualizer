@@ -4,11 +4,13 @@
 #include <memory>
 
 struct GraphRendererConfiguration {
-  float lineThickness   = 0.0001f;
-  bool  colorMode       = false;
-  float alphaAmount     = 0.1f;
-  bool  confRenderEdges = true;
-  bool  confRenderNodes = true;
+  float lineThickness        = 0.0001f;
+  bool  colorMode            = false;
+  float alphaAmount          = 0.1f;
+  bool  confRenderEdges      = true;
+  bool  confRenderNodes      = true;
+  float basePointSize        = 5.0f;
+  bool  perspectivePointSize = false;
 };
 
 struct GraphRendererEntity {
