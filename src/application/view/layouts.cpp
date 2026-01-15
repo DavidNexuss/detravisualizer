@@ -439,23 +439,8 @@ struct ACILayoutGUI : public graphs::position::AlgorithmACI, public LayoutContro
 
 
     if (!(newCi == *this) || modified) {
-      _shouldLayout  = true;
-      majorDistance  = newCi.majorDistance;
-      minorDistance  = newCi.minorDistance;
-      treecapitation = newCi.treecapitation;
-      logtolerance   = newCi.logtolerance;
-      jitter         = newCi.jitter;
-      minimal        = newCi.minimal;
-      offset         = newCi.offset;
-      interpolation  = newCi.interpolation;
-      nodeThreshold  = newCi.nodeThreshold;
-
-      av = newCi.av;
-      bv = newCi.bv;
-      cv = newCi.cv;
-
-      for (int i = 0; i < 3; i++)
-        interp[i] = newCi.interp[i];
+      static_cast<graphs::position::AlgorithmACI&>(*this) = newCi;
+      _shouldLayout                                       = true;
     }
 
     ImGui::Text("Hub optimize");

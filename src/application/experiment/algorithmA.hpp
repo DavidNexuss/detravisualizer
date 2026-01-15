@@ -144,6 +144,13 @@ void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& co
 
     if ((i / (float)degreeSequence.size()) > ci.nodeThreshold) {
       positions[node] = glm::vec3(0.0f);
+      placed.insert(node);
+      continue;
+    }
+
+    if (degrees[node] == 0) {
+      positions[node] = glm::vec3(0.0f);
+      placed.insert(node);
       continue;
     }
 
