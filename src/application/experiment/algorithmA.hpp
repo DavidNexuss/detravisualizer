@@ -121,6 +121,14 @@ std::vector<float> softmin(const std::vector<T>& x, double tau) {
 
   return weights;
 }
+template <typename T>
+std::vector<float> softmax(const std::vector<T>& x, double tau) {
+  std::vector<T> neg(x.size());
+  for (size_t i = 0; i < x.size(); ++i)
+    neg[i] = -x[i];
+
+  return softmin(neg, tau);
+}
 
 
 template <typename Graph>
@@ -134,6 +142,11 @@ void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& co
   std::unordered_set<uint32_t> placed;
 
   int i = 0;
+
+  bool inverse = false;
+
+  if (inverse)
+    std::reverse(std::begin(degreeSequence), std::end(degreeSequence));
   //Calculate postions A and B
   for (uint32_t node : degreeSequence) {
     i++;
@@ -175,7 +188,8 @@ void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& co
         }
       }
 
-      auto weights = softmin(relevantDegrees, ci.treecapitation);
+      auto weights = !inverse ? softmin(relevantDegrees, ci.treecapitation) : softmax(relevantDegrees, ci.treecapitation);
+
       for (uint32_t i = 0; i < weights.size(); i++) {
         A += weights[i] * relevantPositions[i];
         Ac += weights[i] * relevantColors[i];
@@ -200,6 +214,9 @@ void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& co
 
     if (ci.interpolation)
       t = eval(ci.interp, t);
+
+    if (inverse)
+      t = 1 - t;
 
     // Place the node, linear interpolation of A and B
     positions[node] =
