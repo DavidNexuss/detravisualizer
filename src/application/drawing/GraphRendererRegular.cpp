@@ -185,6 +185,7 @@ struct GraphRendererRegular : public GraphRenderer {
   virtual void render(GraphRendererEntity entity, Camera& camera, const glm::mat4& transform) override {
     if (this->entity != entity) {
       this->entity = entity;
+      std::cout << "Remesh cache" << std::endl;
       remesh();
     }
 

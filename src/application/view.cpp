@@ -28,6 +28,7 @@ class ViewImpl : public View {
   bool  showGraphStats              = true;
   bool  showExportMenu              = true;
   bool  showRenderConfigurationMenu = false;
+  bool  showOpenMenu                = false;
 
   // ========================[APPLICATION UI=============================================
 
@@ -63,6 +64,64 @@ class ViewImpl : public View {
 
   void reloadLayoutStats() {
     currentGrapLayoutStatistics->reload(currentGraph, currentGraphLayout);
+  }
+
+
+  void openMenu() {
+
+    if (showOpenMenu && ImGui::Begin("Open", &showOpenMenu)) {
+
+      ImGui::Text("Graph Selection");
+
+      static int               selected = -1;
+      std::vector<std::string> files    = domain::graphlist();
+
+      if (files.empty()) {
+        ImGui::TextDisabled("No graph files found.");
+        ImGui::End();
+        return;
+      }
+
+      if (selected < 0 || selected >= (int)files.size())
+        selected = 0;
+
+      if (ImGui::BeginCombo("Graph", files[selected].c_str())) {
+        for (int i = 0; i < (int)files.size(); ++i) {
+          bool isSelected = (selected == i);
+          if (ImGui::Selectable(files[i].c_str(), isSelected)) {
+            selected = i;
+          }
+          if (isSelected)
+            ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+      }
+
+      ImGui::Separator();
+
+      ImGui::Text("Actions");
+
+      if (ImGui::Button("Open")) {
+
+        const std::string& filename = files[selected];
+
+        currentGraph       = domain::graphload(filename);
+        currentGraphLayout = 0;
+        reloadGraphStats();
+
+        std::cout << "Opening graph: " << filename << std::endl;
+      }
+
+      ImGui::Separator();
+
+      ImGui::Text("Info");
+      ImGui::Text("Available graphs: %d", (int)files.size());
+      ImGui::Text("Selected: %s", files[selected].c_str());
+
+      ImGui::Separator();
+
+      ImGui::End();
+    }
   }
 
 
@@ -268,27 +327,7 @@ class ViewImpl : public View {
 
       if (ImGui::BeginMenu("File")) {
         if (ImGui::MenuItem("Open...")) {
-          std::vector<std::string> files = domain::graphlist();
-
-          for (auto& file : files) {
-            std::cout << "> " << file << std::endl;
-          }
-
-          if (files.empty()) {
-            ImGui::MenuItem("(no graphs found)", nullptr, false, false);
-          } else {
-            for (const auto& file : files) {
-              if (ImGui::MenuItem(file.c_str())) {
-                auto graph = domain::graphload(file);
-                if (graph) {
-                  currentGraph = graph;
-                  reloadGraphStats();
-                }
-              }
-            }
-          }
-
-          ImGui::EndMenu();
+          showOpenMenu = true;
         }
         if (ImGui::MenuItem("Generate")) {
           showGenerateMenu = true;
@@ -343,11 +382,13 @@ class ViewImpl : public View {
     if (currentGraph && currentLayout && currentLayout->shouldLayout()) {
       currentGraphLayout = currentLayout->layout(currentGraph);
       reloadLayoutStats();
+      std::cout << "Remesh Layout" << std::endl;
     }
 
     if (currentGraph && currentLayout && currentLayout->shouldOptimize()) {
       currentLayout->optimize(currentGraph, currentGraphLayout);
       graphRenderer->remesh();
+      std::cout << "Remesh optimize" << std::endl;
     }
 
     GraphRendererEntity ent;
@@ -358,6 +399,7 @@ class ViewImpl : public View {
       graphRenderer->render(ent, camera.cam, glm::scale(glm::mat4(1.0f), glm::vec3(renderScale)) * currentGrapLayoutStatistics->transform);
     }
 
+    openMenu();
     generateMenu();
     layoutMenu();
     statsMenu();

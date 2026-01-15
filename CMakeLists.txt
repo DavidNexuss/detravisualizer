@@ -10,6 +10,7 @@ set(DOXYGEN_GENERATE_TREEVIEW YES)
 project(detravisualizer)
 
 find_package(OpenMP)
+find_package(ZLIB REQUIRED)
 
 add_subdirectory(lib/detragraphs)
 add_subdirectory(lib/glfw)
@@ -24,4 +25,4 @@ file(GLOB_RECURSE SRC
 
 include_directories(lib/octree)
 add_executable(detravisualizer ${SRC})
-target_link_libraries(detravisualizer detragraphs glfw)
+target_link_libraries(detravisualizer detragraphs glfw ZLIB::ZLIB)
