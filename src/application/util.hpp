@@ -4,6 +4,7 @@
 #include <graph.hpp>
 #include <graphbackend/adjacencylist.hpp>
 #include <position.hpp>
+#include <unordered_map>
 #include <memory>
 
 struct DataSet {
