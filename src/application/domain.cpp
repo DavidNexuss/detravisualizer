@@ -33,11 +33,11 @@ std::vector<std::string> graphlist() {
 
   return graphs;
 }
+
 std::shared_ptr<Conllu> graphloadConllu(const std::string& filepath) {
 
   const std::string path = "networks/" + filepath;
-
-  std::ifstream file(path);
+  std::ifstream     file(path);
   if (!file.is_open()) {
     return nullptr;
   }
@@ -46,68 +46,85 @@ std::shared_ptr<Conllu> graphloadConllu(const std::string& filepath) {
   result->graph  = std::make_shared<Graph>();
   result->labels = std::make_shared<std::unordered_map<uint32_t, std::vector<std::string>>>();
 
+  // Global aggregation
+  std::unordered_map<std::string, uint32_t> lemmaToNode;
+
+  // Sentence-local
+  std::unordered_map<int, std::string> tokenLemma;
+  std::unordered_map<int, int>         tokenHead;
+
   std::string line;
 
-  uint32_t nodeOffset    = 0;
-  uint32_t sentenceMaxId = 0;
+  auto getNode = [&](const std::string& lemma) -> uint32_t {
+    auto it = lemmaToNode.find(lemma);
+    if (it != lemmaToNode.end())
+      return it->second;
 
-  uint32_t vertexCount = 0;
+    uint32_t id = result->graph->getVertexCount();
+    result->graph->addVertices(1);
+    lemmaToNode[lemma] = id;
+    (*result->labels)[id].push_back(lemma);
+    return id;
+  };
+
+  auto flushSentence = [&]() {
+    for (auto& p : tokenHead) {
+      int dep  = p.first;
+      int head = p.second;
+
+      if (head == 0) continue; // root
+
+      uint32_t u = getNode(tokenLemma[head]);
+      uint32_t v = getNode(tokenLemma[dep]);
+
+      result->graph->addEdge(u, v);
+    }
+    tokenLemma.clear();
+    tokenHead.clear();
+  };
 
   while (std::getline(file, line)) {
 
     if (line.empty()) {
-      nodeOffset += sentenceMaxId;
-      sentenceMaxId = 0;
+      flushSentence();
       continue;
     }
 
     if (line[0] == '#')
       continue;
 
+    // TAB-based split (this is the fix)
+    std::vector<std::string> cols;
+    std::string              field;
+    std::stringstream        ss(line);
+    while (std::getline(ss, field, '\t'))
+      cols.push_back(field);
 
-    std::string token;
+    if (cols.size() < 8)
+      continue;
 
-    int u = -1;
-    int v = -1;
+    // Skip multi-word tokens (e.g. 38-39)
+    if (cols[0].find('-') != std::string::npos)
+      continue;
 
-    std::stringstream ss(line);
-
-    while (ss >> token) {
-      try {
-        u = std::stoi(token);
-        break;
-      } catch (...) {}
+    int id, head;
+    try {
+      id   = std::stoi(cols[0]);
+      head = std::stoi(cols[6]);
+    } catch (...) {
+      continue; // defensive
     }
 
-    while (ss >> token) {
-      try {
-        v = std::stoi(token);
-        break;
-      } catch (...) {}
-    }
+    const std::string& lemma = cols[2];
 
-    if (u != -1 && v != -1) {
-
-      int U = u + nodeOffset;
-      int V = v + nodeOffset;
-
-      int K = std::max(U, V);
-      if (K >= vertexCount) {
-        result->graph->addVertices(K - vertexCount + 1);
-        vertexCount = K + 1;
-      }
-
-      if (U >= result->graph->getVertexCount() || V >= result->graph->getVertexCount()) {
-        std::cout << "CRASH" << std::endl;
-        std::cout << result->graph->getVertexCount() << " " << U << " " << V << std::endl;
-      }
-      result->graph->addEdge(U, V);
-      sentenceMaxId++;
-    }
+    tokenLemma[id] = lemma;
+    tokenHead[id]  = head;
   }
 
+  flushSentence();
   return result;
 }
+
 
 std::shared_ptr<Graph> graphloadTxt(const std::string& filepath) {
   const std::string& path = "networks/" + filepath;

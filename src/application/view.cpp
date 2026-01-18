@@ -26,6 +26,7 @@ class ViewImpl : public View {
   bool  showGenerateMenu            = true;
   bool  showLayoutMenu              = true;
   bool  showGraphStats              = true;
+  bool  showGraphStatsLayout        = false;
   bool  showExportMenu              = true;
   bool  showRenderConfigurationMenu = false;
   bool  showOpenMenu                = false;
@@ -218,6 +219,17 @@ class ViewImpl : public View {
       ImGui::End();
     }
   }
+
+  void statsLayoutMenu() {
+    if (showGraphStatsLayout && ImGui::Begin("StatsLaout", &showGraphStats)) {
+      currentGrapLayoutStatistics->ui();
+      if (currentGrapLayoutStatistics->shouldComputeBoxCounting) {
+        currentGrapLayoutStatistics->computeBoxCounting(currentGraph, currentGraphLayout);
+      }
+      ImGui::End();
+    }
+  }
+
   void layoutMenu() {
     if (!showLayoutMenu)
       return;
@@ -344,7 +356,11 @@ class ViewImpl : public View {
         if (ImGui::MenuItem("Stats")) {
           showGraphStats = true;
         }
+        if (ImGui::MenuItem("StatsLayout")) {
+          showGraphStatsLayout = true;
+        }
         if (ImGui::MenuItem("Save")) {
+          domain::graphsave(currentGraph, "network.txt");
         }
         ImGui::EndMenu();
       }
@@ -408,6 +424,7 @@ class ViewImpl : public View {
     statsMenu();
     exportMenu();
     renderMenu();
+    statsLayoutMenu();
   }
 };
 

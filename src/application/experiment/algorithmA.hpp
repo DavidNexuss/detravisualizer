@@ -40,18 +40,21 @@ namespace graphs {
 namespace position {
 
 struct AlgorithmACI {
-  float majorDistance  = 100.0f;
-  float minorDistance  = 2.0f;
-  float treecapitation = 5.0f;
-  float logtolerance   = 0.0f;
-  float jitter         = 1.0f;
-  float minimal        = 0.0f;
-  float offset         = 0.0f;
-  bool  interpolation  = false;
-  float av             = 1.0f;
-  float bv             = 1.0f;
-  float cv             = 1.0f;
-  float nodeThreshold  = 1.0f;
+  float    majorDistance  = 100.0f;
+  float    minorDistance  = 2.0f;
+  float    treecapitation = 5.0f;
+  float    logtolerance   = 0.0f;
+  float    jitter         = 1.0f;
+  float    minimal        = 0.0f;
+  float    offset         = 0.0f;
+  bool     interpolation  = false;
+  float    av             = 1.0f;
+  float    bv             = 1.0f;
+  float    cv             = 1.0f;
+  float    nodeThreshold  = 1.0f;
+  uint32_t randomizerSeed = 0;
+  bool     inversion      = false;
+  float    tExponent      = 1.0f;
 
   glm::vec2 interp[3];
 
@@ -134,7 +137,8 @@ std::vector<float> softmax(const std::vector<T>& x, double tau) {
 template <typename Graph>
 void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& colors, std::vector<glm::vec3>& positions, std::unordered_set<uint32_t> ignore, std::vector<uint32_t>& degreeSequence, std::vector<uint32_t>& degrees) {
 
-  source = random_sources::XORand();
+  source       = random_sources::XORand();
+  source.state = 17 + ci.randomizerSeed;
 
   float maxDegree    = graph.getEdgeCount(degreeSequence[0]);
   float maxDegreeLog = std::log(maxDegree + 1);
@@ -143,10 +147,13 @@ void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& co
 
   int i = 0;
 
-  bool inverse = false;
+  bool inverse = ci.inversion;
 
   if (inverse)
     std::reverse(std::begin(degreeSequence), std::end(degreeSequence));
+
+
+  std::cout << ci.tExponent << std::endl;
   //Calculate postions A and B
   for (uint32_t node : degreeSequence) {
     i++;
@@ -206,17 +213,23 @@ void treecapitatorstep(Graph& graph, AlgorithmACI ci, std::vector<glm::vec3>& co
       C = randomDirection() * ci.minorDistance;
     }
 
-    // Decide how meaniful is this node as hub or peer based on its node degree compared against the maximal node
-    float tnor = graph.getEdgeCount(node) / maxDegree;
-    float tlog = std::log(graph.getEdgeCount(node) + 0.0001f) / maxDegreeLog;
+    // Compute parameter t
+    float t;
+    {
+      // Decide how meaniful is this node as hub or peer based on its node degree compared against the maximal node
+      float tnor = graph.getEdgeCount(node) / maxDegree;
+      float tlog = std::log(graph.getEdgeCount(node) + 0.0001f) / maxDegreeLog;
 
-    float t = ci.logtolerance * tlog + (1 - ci.logtolerance) * tnor;
+      t = ci.logtolerance * tlog + (1 - ci.logtolerance) * tnor;
 
-    if (ci.interpolation)
-      t = eval(ci.interp, t);
+      if (ci.interpolation)
+        t = eval(ci.interp, t);
 
-    if (inverse)
-      t = 1 - t;
+      if (inverse)
+        t = 1 - t;
+
+      t = std::pow(t, ci.tExponent);
+    }
 
     // Place the node, linear interpolation of A and B
     positions[node] =

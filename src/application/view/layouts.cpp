@@ -415,6 +415,8 @@ struct ACILayoutGUI : public graphs::position::AlgorithmACI, public LayoutContro
 
   bool showDebug = false;
 
+  random_sources::XORand rand;
+
   void configureUI() override {
     ImGui::SeparatorText("ACI Layout");
 
@@ -422,25 +424,36 @@ struct ACILayoutGUI : public graphs::position::AlgorithmACI, public LayoutContro
     ImGui::SliderFloat("Minor Distance", &newCi.minorDistance, 0.0f, 100.0f);
     ImGui::SliderFloat("TreeCapitation", &treecapitationBase, 0.0f, 50.0f);
     ImGui::InputFloat("TreeCapitation (Exp)", &treecapitationExponent, 0.0f, 50.0f);
+    ImGui::SliderFloat("Interpolation exponent", &newCi.tExponent, 0.0f, 50.0f);
     ImGui::SliderFloat("Log Tolerance", &newCi.logtolerance, 0.0f, 1.0f);
     ImGui::SliderFloat("Minimal", &newCi.minimal, 0.0f, 1.0f);
     ImGui::InputFloat("Offset", &newCi.offset);
     ImGui::SliderFloat("Threshold", &newCi.nodeThreshold, 0.0f, 1.0f);
 
+    int modified = 0;
+    /* 
     int modified = ImGui::Curve("Curve", ImVec2(400, 200), 3, (ImVec2*)newCi.interp, &selection);
-    ImGui::Checkbox("Interpolation", &newCi.interpolation);
+    ImGui::Checkbox("Interpolation", &newCi.interpolation); */
 
     newCi.treecapitation = treecapitationBase * std::pow(10.0f, treecapitationExponent);
 
     ImGui::SliderFloat("C", &newCi.cv, 0.0f, 8.0f);
     ImGui::SliderFloat("B", &newCi.bv, 0.0f, 8.0f);
     ImGui::SliderFloat("A", &newCi.av, 0.0f, 8.0f);
+    ImGui::Checkbox("Inversion", &newCi.inversion);
     ImGui::Separator();
 
+    ImGui::InputInt("Seed", (int*)&newCi.randomizerSeed);
 
     if (!(newCi == *this) || modified) {
       static_cast<graphs::position::AlgorithmACI&>(*this) = newCi;
       _shouldLayout                                       = true;
+    }
+
+
+    if (ImGui::Button("Reseed")) {
+      randomizerSeed = rand.randi();
+      _shouldLayout  = true;
     }
 
     ImGui::Text("Hub optimize");
